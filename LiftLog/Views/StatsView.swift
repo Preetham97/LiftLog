@@ -7,7 +7,9 @@ struct StatsView: View {
     @Query private var allLoggedExercises: [LoggedExercise]
 
     private var loggedExercises: [LoggedExercise] {
-        allLoggedExercises.filter { $0.isCompleted }
+        allLoggedExercises.filter { log in
+            log.orderedSets.contains { $0.weight > 0 && $0.reps > 0 }
+        }
     }
 
     struct ExerciseSummary: Identifiable {
@@ -172,7 +174,10 @@ struct ExerciseProgressView: View {
     }
 
     private var logs: [LoggedExercise] {
-        allLogs.filter { $0.exerciseName == exerciseName && $0.isCompleted }
+        allLogs.filter { log in
+            log.exerciseName == exerciseName
+                && log.orderedSets.contains { $0.weight > 0 && $0.reps > 0 }
+        }
     }
 
     private var sessionPoints: [SessionPoint] {

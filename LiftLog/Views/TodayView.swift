@@ -201,7 +201,11 @@ private struct ExerciseLogCard: View {
     }
 
     private var previousLogs: [LoggedExercise] {
-        allLogs.filter { $0.exerciseName == exercise.name && $0.isCompleted }
+        allLogs.filter { log in
+            log.exerciseName == exercise.name
+                && log.session !== session
+                && log.orderedSets.contains { $0.weight > 0 && $0.reps > 0 }
+        }
     }
 
     private var previousSession: LoggedExercise? {
@@ -218,28 +222,17 @@ private struct ExerciseLogCard: View {
         session?.loggedExercises.first { $0.exerciseName == exercise.name }
     }
 
-    @State private var manuallyExpanded: Bool = false
-
     var body: some View {
-        if let log = currentLog, log.isCompleted, !manuallyExpanded {
+        if let log = currentLog, log.isCompleted {
             collapsedView(for: log)
         } else {
             expandedView
         }
     }
 
-    private var hasUsefulSets: Bool {
-        currentLog?.orderedSets.contains { $0.weight > 0 && $0.reps > 0 } ?? false
-    }
-
     private var expandedView: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 14) {
-                if let log = currentLog, log.isCompleted {
-                    Circle()
-                        .fill(Theme.accent)
-                        .frame(width: 8, height: 8)
-                }
                 Text(exercise.name)
                     .font(.headline)
                 Spacer()
@@ -252,9 +245,10 @@ private struct ExerciseLogCard: View {
                 }
                 .buttonStyle(.plain)
 
-                if let log = currentLog, log.isCompleted, manuallyExpanded {
+                if let log = currentLog {
                     Button {
-                        manuallyExpanded = false
+                        log.isCompleted = true
+                        save("collapseExercise")
                     } label: {
                         Image(systemName: "chevron.up")
                             .font(.footnote.weight(.semibold))
@@ -281,34 +275,15 @@ private struct ExerciseLogCard: View {
                     }
                 }
 
-                HStack {
-                    Button {
-                        addSet(to: log)
-                    } label: {
-                        Label("Add set", systemImage: "plus")
-                            .font(.footnote.weight(.medium))
-                            .foregroundStyle(.secondary)
-                    }
-                    .buttonStyle(.plain)
-
-                    Spacer()
-
-                    if !log.isCompleted {
-                        Button {
-                            finishExercise(log)
-                            manuallyExpanded = false
-                        } label: {
-                            HStack(spacing: 4) {
-                                Text("Mark done")
-                                Image(systemName: "arrow.right")
-                            }
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(hasUsefulSets ? Theme.accent : Color.secondary.opacity(0.5))
-                        }
-                        .buttonStyle(.plain)
-                        .disabled(!hasUsefulSets)
-                    }
+                Button {
+                    addSet(to: log)
+                } label: {
+                    Label("Add set", systemImage: "plus")
+                        .font(.footnote.weight(.medium))
+                        .foregroundStyle(.secondary)
+                        .frame(maxWidth: .infinity, alignment: .leading)
                 }
+                .buttonStyle(.plain)
                 .padding(.top, 4)
             } else {
                 Button {
@@ -334,7 +309,8 @@ private struct ExerciseLogCard: View {
         let useful = log.orderedSets.filter { $0.weight > 0 && $0.reps > 0 }
         let topSet = useful.max { $0.weight < $1.weight }
         return Button {
-            manuallyExpanded = true
+            log.isCompleted = false
+            save("expandExercise")
         } label: {
             HStack(spacing: 12) {
                 Circle()
@@ -355,7 +331,7 @@ private struct ExerciseLogCard: View {
                     .foregroundStyle(.secondary)
                 }
                 Spacer()
-                Image(systemName: "chevron.right")
+                Image(systemName: "chevron.down")
                     .font(.caption.bold())
                     .foregroundStyle(.tertiary)
             }
@@ -396,19 +372,6 @@ private struct ExerciseLogCard: View {
     private func delete(_ entry: SetEntry, from log: LoggedExercise) {
         context.delete(entry)
         save("deleteSet")
-    }
-
-    private func finishExercise(_ log: LoggedExercise) {
-        if let last = log.orderedSets.last,
-           last.weight == 0, last.reps == 0, !last.isCompleted {
-            context.delete(last)
-        }
-        for s in log.orderedSets where !s.isCompleted && s.weight > 0 && s.reps > 0 {
-            s.isCompleted = true
-            s.completedAt = .now
-        }
-        log.isCompleted = true
-        save("finishExercise")
     }
 
     private func handleToggleDone(_ entry: SetEntry, in log: LoggedExercise) {

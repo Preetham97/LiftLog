@@ -13,11 +13,10 @@ struct ExerciseHistoryView: View {
 
     private var sortedLogs: [LoggedExercise] {
         allLogs
-            .filter {
-                $0.exerciseName == exerciseName
-                    && $0.isCompleted
-                    && $0.session?.date != nil
-                    && !$0.orderedSets.isEmpty
+            .filter { log in
+                log.exerciseName == exerciseName
+                    && log.session?.date != nil
+                    && log.orderedSets.contains { $0.weight > 0 && $0.reps > 0 }
             }
             .sorted { ($0.session?.date ?? .distantPast) > ($1.session?.date ?? .distantPast) }
     }
