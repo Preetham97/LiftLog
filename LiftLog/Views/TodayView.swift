@@ -85,26 +85,25 @@ struct TodaySessionView: View {
                     )
                 }
 
-                Button {
-                    showingFinishConfirm = true
-                } label: {
-                    HStack(spacing: 6) {
-                        Text(session == nil ? "Skip day & advance" : "Finish day & advance")
-                            .fontWeight(.semibold)
-                        Image(systemName: "arrow.right")
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .foregroundStyle(Theme.accent)
-                    .background(Theme.accentSoft)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.pillCorner, style: .continuous))
-                }
-                .padding(.top, 6)
-
                 Spacer(minLength: 20)
             }
             .padding(.horizontal, 16)
             .padding(.top, 4)
+        }
+        .toolbar {
+            ToolbarItem(placement: .primaryAction) {
+                Button {
+                    showingFinishConfirm = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Text(session == nil ? "Skip" : "Finish")
+                            .fontWeight(.semibold)
+                        Image(systemName: "arrow.right")
+                            .font(.caption.bold())
+                    }
+                    .foregroundStyle(Theme.accent)
+                }
+            }
         }
         .confirmationDialog(
             "Advance to \(nextDayName)?",
@@ -225,8 +224,40 @@ private struct ExerciseLogCard: View {
     var body: some View {
         if let log = currentLog, log.isCompleted {
             collapsedView(for: log)
+        } else if currentLog == nil {
+            idleRow
         } else {
             expandedView
+        }
+    }
+
+    private var idleRow: some View {
+        HStack(spacing: 12) {
+            Text(exercise.name)
+                .font(.body.weight(.medium))
+                .foregroundStyle(.primary)
+            Spacer()
+            NavigationLink {
+                ExerciseHistoryView(exerciseName: exercise.name)
+            } label: {
+                Image(systemName: "clock.arrow.circlepath")
+                    .font(.footnote)
+                    .foregroundStyle(.secondary)
+            }
+            .buttonStyle(.plain)
+            Image(systemName: "chevron.right")
+                .font(.caption.bold())
+                .foregroundStyle(.tertiary)
+        }
+        .padding(.vertical, 12)
+        .padding(.horizontal, 14)
+        .background(
+            RoundedRectangle(cornerRadius: Theme.cardCorner, style: .continuous)
+                .fill(Color(.secondarySystemGroupedBackground))
+        )
+        .contentShape(Rectangle())
+        .onTapGesture {
+            startLogging()
         }
     }
 
@@ -282,21 +313,6 @@ private struct ExerciseLogCard: View {
                 }
                 .buttonStyle(.plain)
                 .padding(.top, 4)
-            } else {
-                Button {
-                    startLogging()
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "plus")
-                        Text("Start logging")
-                            .fontWeight(.semibold)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .background(Theme.accentSoft)
-                    .foregroundStyle(Theme.accent)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.pillCorner, style: .continuous))
-                }
             }
         }
         .card()
