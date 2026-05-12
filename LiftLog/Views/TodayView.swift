@@ -234,7 +234,12 @@ private struct ExerciseLogCard: View {
 
     private var expandedView: some View {
         VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
+            HStack(spacing: 14) {
+                if let log = currentLog, log.isCompleted {
+                    Circle()
+                        .fill(Theme.accent)
+                        .frame(width: 8, height: 8)
+                }
                 Text(exercise.name)
                     .font(.headline)
                 Spacer()
@@ -246,6 +251,20 @@ private struct ExerciseLogCard: View {
                         .foregroundStyle(.secondary)
                 }
                 .buttonStyle(.plain)
+
+                if let log = currentLog, log.isCompleted, manuallyExpanded {
+                    Button {
+                        manuallyExpanded = false
+                    } label: {
+                        Image(systemName: "chevron.up")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(.secondary)
+                            .frame(width: 22, height: 22)
+                            .background(Color(.tertiarySystemGroupedBackground))
+                            .clipShape(Circle())
+                    }
+                    .buttonStyle(.plain)
+                }
             }
 
             PreviousSessionStrip(previous: previousSession, unit: unitPref.unit)
@@ -273,19 +292,7 @@ private struct ExerciseLogCard: View {
 
                     Spacer()
 
-                    if log.isCompleted {
-                        Button {
-                            manuallyExpanded = false
-                        } label: {
-                            HStack(spacing: 4) {
-                                Text("Collapse")
-                                Image(systemName: "chevron.up")
-                            }
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                        }
-                        .buttonStyle(.plain)
-                    } else {
+                    if !log.isCompleted {
                         Button {
                             finishExercise(log)
                             manuallyExpanded = false
