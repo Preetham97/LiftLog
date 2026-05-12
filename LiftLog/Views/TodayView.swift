@@ -267,10 +267,7 @@ private struct ExerciseLogCard: View {
                 VStack(spacing: 6) {
                     ForEach(log.orderedSets) { entry in
                         SwipeableRow(onDelete: { delete(entry, from: log) }) {
-                            SetRowView(
-                                entry: entry,
-                                onToggleDone: { handleToggleDone(entry, in: log) }
-                            )
+                            SetRowView(entry: entry)
                         }
                     }
                 }
@@ -374,14 +371,6 @@ private struct ExerciseLogCard: View {
         save("deleteSet")
     }
 
-    private func handleToggleDone(_ entry: SetEntry, in log: LoggedExercise) {
-        entry.isCompleted.toggle()
-        if entry.isCompleted {
-            entry.completedAt = .now
-        }
-        save("toggleDone")
-    }
-
     private func save(_ source: String) {
         do {
             try context.save()
@@ -430,11 +419,6 @@ private struct PreviousSessionStrip: View {
 private struct SetRowView: View {
     @EnvironmentObject private var unitPref: UnitPreference
     @Bindable var entry: SetEntry
-    let onToggleDone: () -> Void
-
-    private var canMarkDone: Bool {
-        entry.weight > 0 && entry.reps > 0
-    }
 
     var body: some View {
         HStack(spacing: 10) {
@@ -442,7 +426,7 @@ private struct SetRowView: View {
                 .font(.callout.bold())
                 .frame(width: 26, height: 26)
                 .background(Color(.tertiarySystemGroupedBackground))
-                .foregroundStyle(entry.isCompleted ? Theme.accent : .secondary)
+                .foregroundStyle(.secondary)
                 .clipShape(Circle())
 
             NumericField(value: $entry.weight, placeholder: "0", suffix: unitPref.unit.label)
@@ -450,28 +434,9 @@ private struct SetRowView: View {
             NumericIntField(value: $entry.reps, placeholder: "0")
 
             Spacer(minLength: 4)
-
-            Button(action: onToggleDone) {
-                Circle()
-                    .strokeBorder(
-                        entry.isCompleted ? Color.clear : Color.secondary.opacity(0.4),
-                        lineWidth: 1.5
-                    )
-                    .background(
-                        Circle().fill(entry.isCompleted ? Theme.accent : Color.clear)
-                    )
-                    .frame(width: 22, height: 22)
-            }
-            .buttonStyle(.plain)
-            .disabled(!canMarkDone && !entry.isCompleted)
-            .opacity((!canMarkDone && !entry.isCompleted) ? 0.4 : 1)
         }
         .padding(.vertical, 4)
         .padding(.horizontal, 4)
-        .background(
-            RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(entry.isCompleted ? Theme.accentSoft : Color.clear)
-        )
     }
 }
 
