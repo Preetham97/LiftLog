@@ -1,14 +1,14 @@
 import SwiftUI
 
 enum Theme {
-    static let accent = Color(red: 0.95, green: 0.45, blue: 0.20)
-    static let accentSoft = Color(red: 0.95, green: 0.45, blue: 0.20).opacity(0.12)
-    static let cardCorner: CGFloat = 18
-    static let pillCorner: CGFloat = 12
+    static let accent = Color(red: 0.13, green: 0.77, blue: 0.37)
+    static let accentSoft = Color(red: 0.13, green: 0.77, blue: 0.37).opacity(0.14)
+    static let cardCorner: CGFloat = 16
+    static let pillCorner: CGFloat = 10
 }
 
 struct CardBackground: ViewModifier {
-    var padding: CGFloat = 16
+    var padding: CGFloat = 14
     func body(content: Content) -> some View {
         content
             .padding(padding)
@@ -20,7 +20,7 @@ struct CardBackground: ViewModifier {
 }
 
 extension View {
-    func card(padding: CGFloat = 16) -> some View {
+    func card(padding: CGFloat = 14) -> some View {
         modifier(CardBackground(padding: padding))
     }
 }

@@ -73,7 +73,7 @@ struct TodaySessionView: View {
 
     var body: some View {
         ScrollView {
-            VStack(spacing: 16) {
+            VStack(spacing: 10) {
                 HeroHeader(routine: routine, day: day, totalSets: totalSets)
 
                 ForEach(day.orderedExercises) { exercise in
@@ -89,18 +89,18 @@ struct TodaySessionView: View {
                     Button {
                         showingFinishConfirm = true
                     } label: {
-                        HStack {
-                            Image(systemName: "arrow.forward.circle.fill")
+                        HStack(spacing: 6) {
                             Text("Finish day & advance")
                                 .fontWeight(.semibold)
+                            Image(systemName: "arrow.right")
                         }
                         .frame(maxWidth: .infinity)
-                        .padding(.vertical, 14)
-                        .background(Theme.accent)
-                        .foregroundStyle(.white)
+                        .padding(.vertical, 12)
+                        .foregroundStyle(Theme.accent)
+                        .background(Theme.accentSoft)
                         .clipShape(RoundedRectangle(cornerRadius: Theme.pillCorner, style: .continuous))
                     }
-                    .padding(.top, 8)
+                    .padding(.top, 6)
                 }
 
                 Spacer(minLength: 20)
@@ -225,23 +225,17 @@ private struct ExerciseLogCard: View {
     }
 
     private var expandedView: some View {
-        VStack(alignment: .leading, spacing: 14) {
-            HStack {
+        VStack(alignment: .leading, spacing: 12) {
+            HStack(spacing: 8) {
                 Text(exercise.name)
                     .font(.headline)
                 Spacer()
-                if let log = currentLog {
-                    PillLabel(text: "\(log.sets.count) SET\(log.sets.count == 1 ? "" : "S")")
-                }
                 NavigationLink {
                     ExerciseHistoryView(exerciseName: exercise.name)
                 } label: {
                     Image(systemName: "clock.arrow.circlepath")
-                        .font(.callout)
+                        .font(.footnote)
                         .foregroundStyle(.secondary)
-                        .padding(6)
-                        .background(Color(.tertiarySystemGroupedBackground))
-                        .clipShape(Circle())
                 }
                 .buttonStyle(.plain)
             }
@@ -249,7 +243,7 @@ private struct ExerciseLogCard: View {
             PreviousSessionStrip(previous: previousSession, unit: unitPref.unit)
 
             if let log = currentLog {
-                VStack(spacing: 8) {
+                VStack(spacing: 6) {
                     ForEach(log.orderedSets) { entry in
                         SetRowView(
                             entry: entry,
@@ -258,49 +252,46 @@ private struct ExerciseLogCard: View {
                         )
                     }
                 }
-                Button {
-                    addSet(to: log)
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "plus")
-                        Text("Add another set")
-                    }
-                    .font(.caption.weight(.medium))
-                    .foregroundStyle(.secondary)
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 8)
-                }
-                .buttonStyle(.plain)
 
-                Button {
-                    finishExercise(log)
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: "checkmark.seal.fill")
-                        Text("Done with \(exercise.name)")
-                            .fontWeight(.semibold)
+                HStack {
+                    Button {
+                        addSet(to: log)
+                    } label: {
+                        Label("Add set", systemImage: "plus")
+                            .font(.footnote.weight(.medium))
+                            .foregroundStyle(.secondary)
                     }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(hasUsefulSets ? Color.green.opacity(0.18) : Color(.tertiarySystemGroupedBackground))
-                    .foregroundStyle(hasUsefulSets ? Color.green : .secondary)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.pillCorner, style: .continuous))
+                    .buttonStyle(.plain)
+
+                    Spacer()
+
+                    Button {
+                        finishExercise(log)
+                    } label: {
+                        HStack(spacing: 4) {
+                            Text("Mark done")
+                            Image(systemName: "arrow.right")
+                        }
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(hasUsefulSets ? Theme.accent : Color.secondary.opacity(0.5))
+                    }
+                    .buttonStyle(.plain)
+                    .disabled(!hasUsefulSets)
                 }
-                .buttonStyle(.plain)
-                .disabled(!hasUsefulSets)
+                .padding(.top, 4)
             } else {
                 Button {
                     startLogging()
                 } label: {
-                    HStack {
-                        Image(systemName: "square.and.pencil")
+                    HStack(spacing: 6) {
+                        Image(systemName: "plus")
                         Text("Start logging")
                             .fontWeight(.semibold)
                     }
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 12)
-                    .background(Theme.accent)
-                    .foregroundStyle(.white)
+                    .padding(.vertical, 10)
+                    .background(Theme.accentSoft)
+                    .foregroundStyle(Theme.accent)
                     .clipShape(RoundedRectangle(cornerRadius: Theme.pillCorner, style: .continuous))
                 }
             }
@@ -316,15 +307,13 @@ private struct ExerciseLogCard: View {
             save("reopenExercise")
         } label: {
             HStack(spacing: 12) {
-                Image(systemName: "checkmark.seal.fill")
-                    .font(.title3)
-                    .foregroundStyle(Color.green)
-                    .frame(width: 36, height: 36)
-                    .background(Color.green.opacity(0.15))
-                    .clipShape(Circle())
+                Circle()
+                    .fill(Theme.accent)
+                    .frame(width: 8, height: 8)
                 VStack(alignment: .leading, spacing: 2) {
                     Text(exercise.name)
                         .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
                     HStack(spacing: 6) {
                         Text("\(useful.count) set\(useful.count == 1 ? "" : "s")")
                         if let top = topSet {
@@ -340,7 +329,8 @@ private struct ExerciseLogCard: View {
                     .font(.caption.bold())
                     .foregroundStyle(.tertiary)
             }
-            .padding(12)
+            .padding(.vertical, 12)
+            .padding(.horizontal, 14)
             .background(
                 RoundedRectangle(cornerRadius: Theme.cardCorner, style: .continuous)
                     .fill(Color(.secondarySystemGroupedBackground))
@@ -417,34 +407,27 @@ private struct PreviousSessionStrip: View {
     let unit: WeightUnit
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            HStack(spacing: 6) {
-                Image(systemName: "clock.arrow.circlepath")
-                    .font(.caption)
-                Text(previous == nil ? "First time logging this lift" : "Last session • \(previous?.session?.date.formatted(.relative(presentation: .named)) ?? "")")
-                    .font(.caption.weight(.semibold))
-            }
-            .foregroundStyle(.secondary)
+        VStack(alignment: .leading, spacing: 4) {
+            Text(previous == nil ? "First time logging this lift" : "Last \(previous?.session?.date.formatted(.relative(presentation: .named)) ?? "")")
+                .font(.caption2.weight(.semibold))
+                .tracking(0.4)
+                .foregroundStyle(.secondary)
 
             if let prev = previous, !prev.orderedSets.isEmpty {
-                FlowLayout(spacing: 6) {
+                FlowLayout(spacing: 4) {
                     ForEach(prev.orderedSets) { s in
-                        Text("\(formatWeight(s.weight, unit: unit)) × \(s.reps)")
-                            .font(.caption.monospaced())
-                            .padding(.horizontal, 8)
-                            .padding(.vertical, 4)
-                            .background(Color(.tertiarySystemBackground))
+                        Text("\(formatWeight(s.weight, unit: unit))×\(s.reps)")
+                            .font(.caption2.monospaced())
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 3)
+                            .background(Color(.tertiarySystemGroupedBackground))
+                            .foregroundStyle(.secondary)
                             .clipShape(Capsule())
                     }
                 }
             }
         }
         .frame(maxWidth: .infinity, alignment: .leading)
-        .padding(10)
-        .background(
-            RoundedRectangle(cornerRadius: 12, style: .continuous)
-                .fill(Color(.tertiarySystemGroupedBackground))
-        )
     }
 
     private func formatWeight(_ w: Double, unit: WeightUnit) -> String {
@@ -469,9 +452,9 @@ private struct SetRowView: View {
         HStack(spacing: 10) {
             Text("\(entry.order + 1)")
                 .font(.callout.bold())
-                .frame(width: 28, height: 28)
-                .background(entry.isCompleted ? Color.green.opacity(0.18) : Theme.accentSoft)
-                .foregroundStyle(entry.isCompleted ? Color.green : Theme.accent)
+                .frame(width: 26, height: 26)
+                .background(Color(.tertiarySystemGroupedBackground))
+                .foregroundStyle(entry.isCompleted ? Theme.accent : .secondary)
                 .clipShape(Circle())
 
             NumericField(value: $entry.weight, placeholder: "0", suffix: unitPref.unit.label)
@@ -481,19 +464,25 @@ private struct SetRowView: View {
             Spacer(minLength: 4)
 
             Button(action: onToggleDone) {
-                Image(systemName: entry.isCompleted ? "checkmark.circle.fill" : "circle")
-                    .font(.title3)
-                    .foregroundStyle(entry.isCompleted ? Color.green : Color.secondary)
+                Circle()
+                    .strokeBorder(
+                        entry.isCompleted ? Color.clear : Color.secondary.opacity(0.4),
+                        lineWidth: 1.5
+                    )
+                    .background(
+                        Circle().fill(entry.isCompleted ? Theme.accent : Color.clear)
+                    )
+                    .frame(width: 22, height: 22)
             }
             .buttonStyle(.plain)
             .disabled(!canMarkDone && !entry.isCompleted)
             .opacity((!canMarkDone && !entry.isCompleted) ? 0.4 : 1)
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, 4)
         .padding(.horizontal, 4)
         .background(
             RoundedRectangle(cornerRadius: 10, style: .continuous)
-                .fill(entry.isCompleted ? Color.green.opacity(0.08) : Color.clear)
+                .fill(entry.isCompleted ? Theme.accentSoft : Color.clear)
         )
         .contextMenu {
             Button(role: .destructive, action: onDelete) {
