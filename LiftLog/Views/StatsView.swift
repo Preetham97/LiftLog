@@ -12,6 +12,7 @@ struct StatsView: View {
         let latestE1RM: Double
         let sessionCount: Int
         let trend: Double
+        let lastSessionDate: Date
     }
 
     private var summaries: [ExerciseSummary] {
@@ -31,9 +32,10 @@ struct StatsView: View {
                 name: name,
                 latestE1RM: last.1,
                 sessionCount: dated.count,
-                trend: trend
+                trend: trend,
+                lastSessionDate: last.0
             )
-        }.sorted { $0.name < $1.name }
+        }.sorted { $0.lastSessionDate > $1.lastSessionDate }
     }
 
     var body: some View {
@@ -75,9 +77,13 @@ private struct StatSummaryCard: View {
                 Text(summary.name)
                     .font(.headline)
                     .foregroundStyle(.primary)
-                Text("\(summary.sessionCount) session\(summary.sessionCount == 1 ? "" : "s")")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 6) {
+                    Text("\(summary.sessionCount) session\(summary.sessionCount == 1 ? "" : "s")")
+                    Text("•").foregroundStyle(.tertiary)
+                    Text(summary.lastSessionDate.formatted(.relative(presentation: .named)))
+                }
+                .font(.caption)
+                .foregroundStyle(.secondary)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 4) {
