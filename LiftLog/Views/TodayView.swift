@@ -543,18 +543,40 @@ private struct NumericField: View {
     let placeholder: String
     let suffix: String
 
+    @State private var text: String = ""
+    @FocusState private var focused: Bool
+
     var body: some View {
         HStack(spacing: 4) {
-            TextField(placeholder, value: $value, format: .number.precision(.fractionLength(0...1)))
+            TextField(placeholder, text: $text)
                 .keyboardType(.decimalPad)
                 .multilineTextAlignment(.center)
                 .frame(minWidth: 56)
                 .padding(.vertical, 8)
                 .background(Color(.tertiarySystemGroupedBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+                .focused($focused)
+                .onAppear { syncFromValue() }
+                .onChange(of: text) { _, newText in
+                    let cleaned = newText.replacingOccurrences(of: ",", with: ".")
+                    value = Double(cleaned) ?? 0
+                }
+                .onChange(of: value) { _, _ in
+                    if !focused { syncFromValue() }
+                }
             Text(suffix)
                 .font(.caption2)
                 .foregroundStyle(.secondary)
+        }
+    }
+
+    private func syncFromValue() {
+        if value == 0 {
+            text = ""
+        } else if value.truncatingRemainder(dividingBy: 1) == 0 {
+            text = "\(Int(value))"
+        } else {
+            text = String(format: "%g", value)
         }
     }
 }
@@ -563,14 +585,29 @@ private struct NumericIntField: View {
     @Binding var value: Int
     let placeholder: String
 
+    @State private var text: String = ""
+    @FocusState private var focused: Bool
+
     var body: some View {
-        TextField(placeholder, value: $value, format: .number)
+        TextField(placeholder, text: $text)
             .keyboardType(.numberPad)
             .multilineTextAlignment(.center)
             .frame(minWidth: 52)
             .padding(.vertical, 8)
             .background(Color(.tertiarySystemGroupedBackground))
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
+            .focused($focused)
+            .onAppear { syncFromValue() }
+            .onChange(of: text) { _, newText in
+                value = Int(newText) ?? 0
+            }
+            .onChange(of: value) { _, _ in
+                if !focused { syncFromValue() }
+            }
+    }
+
+    private func syncFromValue() {
+        text = value == 0 ? "" : "\(value)"
     }
 }
 
