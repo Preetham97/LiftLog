@@ -232,8 +232,6 @@ struct ExerciseProgressView: View {
                             unit: unitPref.unit
                         )
 
-                        RecentSessionsCard(points: sessionPoints, unit: unitPref.unit)
-
                         NavigationLink {
                             ExerciseHistoryView(exerciseName: exerciseName)
                         } label: {
@@ -348,32 +346,3 @@ private struct ChartCard: View {
     }
 }
 
-private struct RecentSessionsCard: View {
-    let points: [SessionPoint]
-    let unit: WeightUnit
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            Text("Recent sessions")
-                .font(.headline)
-            VStack(spacing: 0) {
-                let recent = Array(points.suffix(8).reversed())
-                ForEach(Array(recent.enumerated()), id: \.element.id) { idx, p in
-                    HStack {
-                        Text(p.date.formatted(date: .abbreviated, time: .omitted))
-                            .font(.callout)
-                        Spacer()
-                        Text(p.topE1RM.formattedWeight(unit: unit))
-                            .font(.callout.monospacedDigit())
-                            .foregroundStyle(.secondary)
-                    }
-                    .padding(.vertical, 10)
-                    if idx < recent.count - 1 {
-                        Divider()
-                    }
-                }
-            }
-        }
-        .card()
-    }
-}
