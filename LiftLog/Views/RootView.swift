@@ -9,14 +9,14 @@ struct RootView: View {
             TodayView()
                 .tabItem { Label("Today", systemImage: "dumbbell.fill") }
 
-            RoutinesView()
-                .tabItem { Label("Routines", systemImage: "list.bullet.rectangle") }
-
             StatsView()
                 .tabItem { Label("Stats", systemImage: "chart.line.uptrend.xyaxis") }
 
             HistoryView()
                 .tabItem { Label("History", systemImage: "calendar") }
+
+            RoutinesView()
+                .tabItem { Label("Routines", systemImage: "list.bullet.rectangle") }
 
             SettingsView()
                 .tabItem { Label("Settings", systemImage: "gearshape") }
