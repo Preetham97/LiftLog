@@ -163,11 +163,32 @@ struct SessionPoint: Identifiable {
     let totalVolume: Double
 }
 
+enum ChartRange: String, CaseIterable, Identifiable {
+    case month = "1M"
+    case threeMonths = "3M"
+    case sixMonths = "6M"
+    case year = "1Y"
+    case all = "All"
+
+    var id: String { rawValue }
+
+    var days: Int? {
+        switch self {
+        case .month: return 30
+        case .threeMonths: return 90
+        case .sixMonths: return 180
+        case .year: return 365
+        case .all: return nil
+        }
+    }
+}
+
 struct ExerciseProgressView: View {
     @EnvironmentObject private var unitPref: UnitPreference
     let exerciseName: String
 
     @Query private var allLogs: [LoggedExercise]
+    @State private var range: ChartRange = .threeMonths
 
     init(exerciseName: String) {
         self.exerciseName = exerciseName
@@ -180,7 +201,7 @@ struct ExerciseProgressView: View {
         }
     }
 
-    private var sessionPoints: [SessionPoint] {
+    private var allSessionPoints: [SessionPoint] {
         logs
             .compactMap { log -> SessionPoint? in
                 guard let date = log.session?.date else { return nil }
@@ -193,6 +214,12 @@ struct ExerciseProgressView: View {
             .sorted { $0.date < $1.date }
     }
 
+    private var sessionPoints: [SessionPoint] {
+        guard let days = range.days else { return allSessionPoints }
+        let cutoff = Calendar.current.date(byAdding: .day, value: -days, to: .now) ?? .distantPast
+        return allSessionPoints.filter { $0.date >= cutoff }
+    }
+
     private var bestE1RM: Double { sessionPoints.map(\.topE1RM).max() ?? 0 }
     private var bestVolume: Double { sessionPoints.map(\.totalVolume).max() ?? 0 }
 
@@ -201,11 +228,21 @@ struct ExerciseProgressView: View {
             ScreenBackground()
             ScrollView {
                 VStack(spacing: 16) {
-                    if sessionPoints.isEmpty {
+                    if allSessionPoints.isEmpty {
                         Text("No completed sets yet.")
                             .foregroundStyle(.secondary)
                             .padding()
                     } else {
+                        RangePicker(selection: $range)
+
+                        if sessionPoints.isEmpty {
+                            Text("No sessions in this range.")
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                                .frame(maxWidth: .infinity)
+                                .padding(.vertical, 24)
+                        }
+
                         HighlightRow(
                             items: [
                                 .init(value: bestE1RM.formattedWeight(unit: unitPref.unit), label: "BEST e1RM"),
@@ -262,6 +299,43 @@ struct ExerciseProgressView: View {
         }
         .navigationTitle(exerciseName)
         .navigationBarTitleDisplayMode(.inline)
+    }
+}
+
+private struct RangePicker: View {
+    @Binding var selection: ChartRange
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(ChartRange.allCases) { option in
+                let isSelected = selection == option
+                Button {
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {
+                        selection = option
+                    }
+                } label: {
+                    Text(option.rawValue)
+                        .font(.caption.weight(.semibold))
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 8)
+                        .foregroundStyle(isSelected ? .white : .primary)
+                        .background(
+                            ZStack {
+                                if isSelected {
+                                    RoundedRectangle(cornerRadius: 8, style: .continuous)
+                                        .fill(Theme.accent)
+                                }
+                            }
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(3)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(Color(.tertiarySystemGroupedBackground))
+        )
     }
 }
 
