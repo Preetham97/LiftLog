@@ -90,8 +90,8 @@ struct TodaySessionView: View {
                         showingFinishConfirm = true
                     } label: {
                         HStack {
-                            Image(systemName: "checkmark.circle.fill")
-                            Text("Finish session")
+                            Image(systemName: "arrow.forward.circle.fill")
+                            Text("Finish day & advance")
                                 .fontWeight(.semibold)
                         }
                         .frame(maxWidth: .infinity)
@@ -109,19 +109,19 @@ struct TodaySessionView: View {
             .padding(.top, 4)
         }
         .confirmationDialog(
-            "Finish \(day.name)?",
+            "Advance to \(nextDayName)?",
             isPresented: $showingFinishConfirm,
             titleVisibility: .visible
         ) {
-            Button("Finish & advance to \(nextDayName)") {
+            Button("Yes — advance to \(nextDayName)") {
                 finishSession(advance: true)
             }
-            Button("Save without advancing") {
+            Button("Stay on \(day.name)") {
                 finishSession(advance: false)
             }
             Button("Cancel", role: .cancel) {}
         } message: {
-            Text("Advancing moves your routine to the next day. You can adjust this later in the Routines tab.")
+            Text("Your sets are already saved. This only moves the routine cycle forward — you can adjust the next day later in the Routines tab.")
         }
     }
 
