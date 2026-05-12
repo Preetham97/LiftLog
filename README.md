@@ -13,6 +13,9 @@ A clean iOS workout tracker focused on **progressive overload**: every time you 
   - Trend badges on the index show session-over-session change.
 - **Exercise history** — full set-by-set log for every exercise, reachable
   from the exercise card on Today (clock icon) or from a stats screen.
+- **Calendar history** — dedicated History tab with a month calendar. Days
+  with logged sessions get a green dot; tap one for a read-only view of
+  what you did.
 - **kg / lbs** toggle.
 
 ## Stack
