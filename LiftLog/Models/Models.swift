@@ -108,14 +108,16 @@ final class SetEntry {
     var weight: Double = 0
     var reps: Int = 0
     var rpe: Double?
+    var isCompleted: Bool = false
     var completedAt: Date = Date.now
     var loggedExercise: LoggedExercise?
 
-    init(order: Int, weight: Double, reps: Int, rpe: Double? = nil, completedAt: Date = .now) {
+    init(order: Int, weight: Double, reps: Int, rpe: Double? = nil, isCompleted: Bool = false, completedAt: Date = .now) {
         self.order = order
         self.weight = weight
         self.reps = reps
         self.rpe = rpe
+        self.isCompleted = isCompleted
         self.completedAt = completedAt
     }
 

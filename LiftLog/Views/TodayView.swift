@@ -239,23 +239,26 @@ private struct ExerciseLogCard: View {
             if let log = currentLog {
                 VStack(spacing: 8) {
                     ForEach(log.orderedSets) { entry in
-                        SetRowView(entry: entry, onDelete: { delete(entry, from: log) })
+                        SetRowView(
+                            entry: entry,
+                            onToggleDone: { handleToggleDone(entry, in: log) },
+                            onDelete: { delete(entry, from: log) }
+                        )
                     }
                 }
                 Button {
                     addSet(to: log)
                 } label: {
-                    HStack {
-                        Image(systemName: "plus.circle.fill")
-                        Text("Add set")
-                            .fontWeight(.medium)
+                    HStack(spacing: 6) {
+                        Image(systemName: "plus")
+                        Text("Add another set")
                     }
+                    .font(.caption.weight(.medium))
+                    .foregroundStyle(.secondary)
                     .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .background(Theme.accentSoft)
-                    .foregroundStyle(Theme.accent)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.pillCorner, style: .continuous))
+                    .padding(.vertical, 8)
                 }
+                .buttonStyle(.plain)
             } else {
                 Button {
                     startLogging()
@@ -298,6 +301,18 @@ private struct ExerciseLogCard: View {
 
     private func delete(_ entry: SetEntry, from log: LoggedExercise) {
         context.delete(entry)
+        try? context.save()
+    }
+
+    private func handleToggleDone(_ entry: SetEntry, in log: LoggedExercise) {
+        entry.isCompleted.toggle()
+        if entry.isCompleted {
+            entry.completedAt = .now
+            let isLast = log.orderedSets.last?.id == entry.id
+            if isLast {
+                addSet(to: log)
+            }
+        }
         try? context.save()
     }
 }
@@ -348,15 +363,20 @@ private struct PreviousSessionStrip: View {
 private struct SetRowView: View {
     @EnvironmentObject private var unitPref: UnitPreference
     @Bindable var entry: SetEntry
+    let onToggleDone: () -> Void
     let onDelete: () -> Void
+
+    private var canMarkDone: Bool {
+        entry.weight > 0 && entry.reps > 0
+    }
 
     var body: some View {
         HStack(spacing: 10) {
             Text("\(entry.order + 1)")
                 .font(.callout.bold())
                 .frame(width: 28, height: 28)
-                .background(Theme.accentSoft)
-                .foregroundStyle(Theme.accent)
+                .background(entry.isCompleted ? Color.green.opacity(0.18) : Theme.accentSoft)
+                .foregroundStyle(entry.isCompleted ? Color.green : Theme.accent)
                 .clipShape(Circle())
 
             NumericField(value: $entry.weight, placeholder: "0", suffix: unitPref.unit.label)
@@ -364,11 +384,26 @@ private struct SetRowView: View {
             NumericIntField(value: $entry.reps, placeholder: "0")
 
             Spacer(minLength: 4)
-            Button(role: .destructive, action: onDelete) {
-                Image(systemName: "minus.circle.fill")
-                    .foregroundStyle(.secondary)
+
+            Button(action: onToggleDone) {
+                Image(systemName: entry.isCompleted ? "checkmark.circle.fill" : "circle")
+                    .font(.title3)
+                    .foregroundStyle(entry.isCompleted ? Color.green : Color.secondary)
             }
             .buttonStyle(.plain)
+            .disabled(!canMarkDone && !entry.isCompleted)
+            .opacity((!canMarkDone && !entry.isCompleted) ? 0.4 : 1)
+        }
+        .padding(.vertical, 6)
+        .padding(.horizontal, 4)
+        .background(
+            RoundedRectangle(cornerRadius: 10, style: .continuous)
+                .fill(entry.isCompleted ? Color.green.opacity(0.08) : Color.clear)
+        )
+        .contextMenu {
+            Button(role: .destructive, action: onDelete) {
+                Label("Delete set", systemImage: "trash")
+            }
         }
     }
 }
