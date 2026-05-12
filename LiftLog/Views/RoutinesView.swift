@@ -214,108 +214,68 @@ struct RoutineDetailView: View {
     @Query private var allRoutines: [Routine]
 
     var body: some View {
-        ZStack {
-            ScreenBackground()
-            ScrollView {
-                VStack(spacing: 16) {
-                    HeaderCard(routine: routine, allRoutines: allRoutines, context: context)
-                    DaysSection(routine: routine)
+        List {
+            Section {
+                TextField("Routine name", text: $routine.name)
+                    .font(.headline)
+                if routine.isActive {
+                    HStack {
+                        Image(systemName: "star.fill")
+                            .foregroundStyle(Theme.accent)
+                        Text("Active routine")
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    Button {
+                        for r in allRoutines { r.isActive = (r.id == routine.id) }
+                        try? context.save()
+                    } label: {
+                        Label("Set as active", systemImage: "star")
+                            .foregroundStyle(Theme.accent)
+                    }
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-                .padding(.bottom, 24)
+            } header: {
+                Text("Routine")
+            }
+
+            Section {
+                ForEach(routine.orderedDays) { day in
+                    NavigationLink {
+                        RoutineDayDetailView(day: day)
+                    } label: {
+                        DayRow(day: day, isNext: day.id == routine.nextDay?.id)
+                    }
+                    .swipeActions(edge: .leading, allowsFullSwipe: true) {
+                        if day.id != routine.nextDay?.id {
+                            Button {
+                                setNextDay(day)
+                            } label: {
+                                Label("Set Next", systemImage: "arrow.right.circle.fill")
+                            }
+                            .tint(Theme.accent)
+                        }
+                    }
+                    .swipeActions(edge: .trailing) {
+                        Button(role: .destructive) {
+                            delete(day)
+                        } label: {
+                            Label("Delete", systemImage: "trash")
+                        }
+                    }
+                }
+
+                Button(action: addDay) {
+                    Label("Add day", systemImage: "plus")
+                        .foregroundStyle(Theme.accent)
+                }
+            } header: {
+                Text("Cycle")
+            } footer: {
+                Text("Swipe a day right to make it the next session.")
             }
         }
         .navigationTitle(routine.name)
         .navigationBarTitleDisplayMode(.inline)
-    }
-}
-
-private struct HeaderCard: View {
-    @Bindable var routine: Routine
-    let allRoutines: [Routine]
-    let context: ModelContext
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack {
-                Text("ROUTINE")
-                    .font(.caption2.bold())
-                    .tracking(0.8)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                if routine.isActive {
-                    PillLabel(text: "ACTIVE")
-                }
-            }
-            TextField("Routine name", text: $routine.name)
-                .font(.title2.bold())
-                .textFieldStyle(.plain)
-
-            if !routine.isActive {
-                Button {
-                    for r in allRoutines { r.isActive = (r.id == routine.id) }
-                    try? context.save()
-                } label: {
-                    HStack {
-                        Image(systemName: "star.fill")
-                        Text("Set as active routine")
-                            .fontWeight(.semibold)
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 10)
-                    .background(Theme.accentSoft)
-                    .foregroundStyle(Theme.accent)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.pillCorner, style: .continuous))
-                }
-            }
-        }
-        .card()
-    }
-}
-
-private struct DaysSection: View {
-    @Environment(\.modelContext) private var context
-    @Bindable var routine: Routine
-
-    var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack {
-                Text("CYCLE")
-                    .font(.caption2.bold())
-                    .tracking(0.8)
-                    .foregroundStyle(.secondary)
-                Spacer()
-                Text("Swipe a day to set it as next")
-                    .font(.caption2)
-                    .foregroundStyle(.tertiary)
-            }
-            .padding(.horizontal, 4)
-
-            VStack(spacing: 8) {
-                ForEach(routine.orderedDays) { day in
-                    DayRow(
-                        day: day,
-                        isNext: day.id == routine.nextDay?.id,
-                        onSetNext: { setNextDay(day) },
-                        onDelete: { delete(day) }
-                    )
-                }
-                Button(action: addDay) {
-                    HStack {
-                        Image(systemName: "plus.circle.fill")
-                        Text("Add day")
-                            .fontWeight(.medium)
-                        Spacer()
-                    }
-                    .padding(.vertical, 12)
-                    .padding(.horizontal, 14)
-                    .background(Theme.accentSoft)
-                    .foregroundStyle(Theme.accent)
-                    .clipShape(RoundedRectangle(cornerRadius: Theme.pillCorner, style: .continuous))
-                }
-            }
-        }
     }
 
     private func addDay() {
@@ -342,60 +302,30 @@ private struct DaysSection: View {
 private struct DayRow: View {
     let day: RoutineDay
     let isNext: Bool
-    let onSetNext: () -> Void
-    let onDelete: () -> Void
 
     var body: some View {
-        NavigationLink {
-            RoutineDayDetailView(day: day)
-        } label: {
-            HStack(spacing: 12) {
-                ZStack {
-                    Circle()
-                        .fill(isNext ? Theme.accent : Color(.tertiarySystemGroupedBackground))
-                        .frame(width: 36, height: 36)
-                    Image(systemName: isNext ? "play.fill" : "calendar")
-                        .font(.callout)
-                        .foregroundStyle(isNext ? .white : .secondary)
-                }
-                VStack(alignment: .leading, spacing: 2) {
-                    HStack(spacing: 6) {
-                        Text(day.name)
-                            .font(.body.weight(.medium))
-                            .foregroundStyle(.primary)
-                        if isNext {
-                            PillLabel(text: "NEXT")
-                        }
+        HStack(spacing: 12) {
+            ZStack {
+                Circle()
+                    .fill(isNext ? Theme.accent : Color(.tertiarySystemGroupedBackground))
+                    .frame(width: 32, height: 32)
+                Image(systemName: isNext ? "play.fill" : "calendar")
+                    .font(.footnote)
+                    .foregroundStyle(isNext ? .white : .secondary)
+            }
+            VStack(alignment: .leading, spacing: 2) {
+                HStack(spacing: 6) {
+                    Text(day.name)
+                        .font(.body.weight(.medium))
+                    if isNext {
+                        PillLabel(text: "NEXT")
                     }
-                    Text("\(day.exercises.count) lift\(day.exercises.count == 1 ? "" : "s")")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
                 }
-                Spacer()
-                Image(systemName: "chevron.right")
-                    .font(.caption.bold())
-                    .foregroundStyle(.tertiary)
+                Text("\(day.exercises.count) lift\(day.exercises.count == 1 ? "" : "s")")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
-            .padding(.vertical, 12)
-            .padding(.horizontal, 14)
-            .background(
-                RoundedRectangle(cornerRadius: Theme.pillCorner, style: .continuous)
-                    .fill(Color(.secondarySystemGroupedBackground))
-            )
-        }
-        .buttonStyle(.plain)
-        .swipeActions(edge: .leading, allowsFullSwipe: true) {
-            if !isNext {
-                Button(action: onSetNext) {
-                    Label("Set Next", systemImage: "arrow.right.circle.fill")
-                }
-                .tint(Theme.accent)
-            }
-        }
-        .swipeActions(edge: .trailing) {
-            Button(role: .destructive, action: onDelete) {
-                Label("Delete", systemImage: "trash")
-            }
+            Spacer()
         }
     }
 }

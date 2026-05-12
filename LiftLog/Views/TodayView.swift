@@ -85,23 +85,21 @@ struct TodaySessionView: View {
                     )
                 }
 
-                if session != nil {
-                    Button {
-                        showingFinishConfirm = true
-                    } label: {
-                        HStack(spacing: 6) {
-                            Text("Finish day & advance")
-                                .fontWeight(.semibold)
-                            Image(systemName: "arrow.right")
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 12)
-                        .foregroundStyle(Theme.accent)
-                        .background(Theme.accentSoft)
-                        .clipShape(RoundedRectangle(cornerRadius: Theme.pillCorner, style: .continuous))
+                Button {
+                    showingFinishConfirm = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(session == nil ? "Skip day & advance" : "Finish day & advance")
+                            .fontWeight(.semibold)
+                        Image(systemName: "arrow.right")
                     }
-                    .padding(.top, 6)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .foregroundStyle(Theme.accent)
+                    .background(Theme.accentSoft)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.pillCorner, style: .continuous))
                 }
+                .padding(.top, 6)
 
                 Spacer(minLength: 20)
             }
@@ -126,12 +124,13 @@ struct TodaySessionView: View {
     }
 
     private func finishSession(advance: Bool) {
-        guard let s = session else { return }
-        let hasAnyLoggedWork = s.loggedExercises.contains { log in
-            log.sets.contains { $0.weight > 0 && $0.reps > 0 }
-        }
-        if !hasAnyLoggedWork {
-            context.delete(s)
+        if let s = session {
+            let hasAnyLoggedWork = s.loggedExercises.contains { log in
+                log.sets.contains { $0.weight > 0 && $0.reps > 0 }
+            }
+            if !hasAnyLoggedWork {
+                context.delete(s)
+            }
         }
         if advance {
             routine.advanceDay()
