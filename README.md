@@ -31,9 +31,9 @@ Then run on the iOS Simulator (Xcode 15+).
 
 ## App icon
 
-The 1024×1024 icon under `LiftLog/Assets.xcassets/AppIcon.appiconset/AppIcon.png`
-is generated programmatically from [Tools/generate_icon.swift](Tools/generate_icon.swift).
-To regenerate it after tweaking the script:
+The 1024×1024 icon lives at `LiftLog/Assets.xcassets/AppIcon.appiconset/AppIcon.png`.
+A Core Graphics generator alternative is kept at [Tools/generate_icon.swift](Tools/generate_icon.swift)
+for experimenting:
 
 ```sh
 swift Tools/generate_icon.swift LiftLog/Assets.xcassets/AppIcon.appiconset/AppIcon.png
