@@ -308,19 +308,20 @@ private struct ExerciseLogCard: View {
                 }
                 .buttonStyle(.plain)
 
+                if currentLog != nil {
+                    Image(systemName: "chevron.up")
+                        .font(.footnote.weight(.semibold))
+                        .foregroundStyle(.secondary)
+                        .frame(width: 22, height: 22)
+                        .background(Color(.tertiarySystemGroupedBackground))
+                        .clipShape(Circle())
+                }
+            }
+            .contentShape(Rectangle())
+            .onTapGesture {
                 if let log = currentLog {
-                    Button {
-                        log.isCompleted = true
-                        save("collapseExercise")
-                    } label: {
-                        Image(systemName: "chevron.up")
-                            .font(.footnote.weight(.semibold))
-                            .foregroundStyle(.secondary)
-                            .frame(width: 22, height: 22)
-                            .background(Color(.tertiarySystemGroupedBackground))
-                            .clipShape(Circle())
-                    }
-                    .buttonStyle(.plain)
+                    log.isCompleted = true
+                    save("collapseExercise")
                 }
             }
 
