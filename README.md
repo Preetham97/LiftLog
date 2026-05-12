@@ -29,11 +29,22 @@ open LiftLog.xcodeproj
 
 Then run on the iOS Simulator (Xcode 15+).
 
+## App icon
+
+The 1024×1024 icon under `LiftLog/Assets.xcassets/AppIcon.appiconset/AppIcon.png`
+is generated programmatically from [Tools/generate_icon.swift](Tools/generate_icon.swift).
+To regenerate it after tweaking the script:
+
+```sh
+swift Tools/generate_icon.swift LiftLog/Assets.xcassets/AppIcon.appiconset/AppIcon.png
+```
+
 ## Project layout
 
 ```
 LiftLog/
 ├── LiftLogApp.swift          # App entry + SwiftData container
+├── Assets.xcassets/          # App icon
 ├── Models/Models.swift       # Routine, RoutineDay, Exercise, WorkoutSession, LoggedExercise, SetEntry
 ├── Util/
 │   ├── Theme.swift           # Shared colors, card modifier, pill labels
@@ -44,4 +55,7 @@ LiftLog/
     ├── RoutinesView.swift    # Routine CRUD + cycle management
     ├── StatsView.swift       # Charts + per-exercise summaries
     └── SettingsView.swift    # Units, about
+
+Tools/
+└── generate_icon.swift       # Core Graphics icon generator
 ```
