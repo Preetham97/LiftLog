@@ -5,19 +5,20 @@ struct ExerciseHistoryView: View {
     @EnvironmentObject private var unitPref: UnitPreference
     let exerciseName: String
 
-    @Query private var logs: [LoggedExercise]
+    @Query private var allLogs: [LoggedExercise]
 
     init(exerciseName: String) {
         self.exerciseName = exerciseName
-        let name = exerciseName
-        self._logs = Query(
-            filter: #Predicate<LoggedExercise> { $0.exerciseName == name && $0.isCompleted }
-        )
     }
 
     private var sortedLogs: [LoggedExercise] {
-        logs
-            .filter { $0.session?.date != nil && !$0.orderedSets.isEmpty }
+        allLogs
+            .filter {
+                $0.exerciseName == exerciseName
+                    && $0.isCompleted
+                    && $0.session?.date != nil
+                    && !$0.orderedSets.isEmpty
+            }
             .sorted { ($0.session?.date ?? .distantPast) > ($1.session?.date ?? .distantPast) }
     }
 

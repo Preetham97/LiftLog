@@ -184,18 +184,17 @@ private struct ExerciseLogCard: View {
     let routine: Routine
     let day: RoutineDay
 
-    @Query private var previousLogs: [LoggedExercise]
+    @Query private var allLogs: [LoggedExercise]
 
     init(exercise: Exercise, session: Binding<WorkoutSession?>, routine: Routine, day: RoutineDay) {
         self.exercise = exercise
         self._session = session
         self.routine = routine
         self.day = day
-        let name = exercise.name
-        self._previousLogs = Query(
-            filter: #Predicate<LoggedExercise> { $0.exerciseName == name && $0.isCompleted },
-            sort: [SortDescriptor(\LoggedExercise.order)]
-        )
+    }
+
+    private var previousLogs: [LoggedExercise] {
+        allLogs.filter { $0.exerciseName == exercise.name && $0.isCompleted }
     }
 
     private var previousSession: LoggedExercise? {

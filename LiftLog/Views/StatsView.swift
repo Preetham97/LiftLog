@@ -4,7 +4,11 @@ import Charts
 
 struct StatsView: View {
     @EnvironmentObject private var unitPref: UnitPreference
-    @Query(filter: #Predicate<LoggedExercise> { $0.isCompleted }) private var loggedExercises: [LoggedExercise]
+    @Query private var allLoggedExercises: [LoggedExercise]
+
+    private var loggedExercises: [LoggedExercise] {
+        allLoggedExercises.filter { $0.isCompleted }
+    }
 
     struct ExerciseSummary: Identifiable {
         let id: String
@@ -161,14 +165,14 @@ struct ExerciseProgressView: View {
     @EnvironmentObject private var unitPref: UnitPreference
     let exerciseName: String
 
-    @Query private var logs: [LoggedExercise]
+    @Query private var allLogs: [LoggedExercise]
 
     init(exerciseName: String) {
         self.exerciseName = exerciseName
-        let name = exerciseName
-        self._logs = Query(
-            filter: #Predicate<LoggedExercise> { $0.exerciseName == name && $0.isCompleted }
-        )
+    }
+
+    private var logs: [LoggedExercise] {
+        allLogs.filter { $0.exerciseName == exerciseName && $0.isCompleted }
     }
 
     private var sessionPoints: [SessionPoint] {
