@@ -49,28 +49,74 @@ struct StatsView: View {
         }.sorted { $0.lastSessionDate > $1.lastSessionDate }
     }
 
+    private var activeSummaries: [ExerciseSummary] {
+        let cutoff = Calendar.current.date(byAdding: .day, value: -14, to: .now) ?? .distantPast
+        return summaries.filter { $0.lastSessionDate >= cutoff }
+    }
+
+    private var olderSummaries: [ExerciseSummary] {
+        let cutoff = Calendar.current.date(byAdding: .day, value: -14, to: .now) ?? .distantPast
+        return summaries.filter { $0.lastSessionDate < cutoff }
+    }
+
+    private var sessionsThisMonth: Int {
+        let cal = Calendar.current
+        let dates = loggedExercises
+            .compactMap { $0.session?.date }
+            .filter { cal.isDate($0, equalTo: .now, toGranularity: .month) }
+            .map { cal.startOfDay(for: $0) }
+        return Set(dates).count
+    }
+
     var body: some View {
         NavigationStack {
-            ZStack {
-                ScreenBackground()
+            Group {
                 if summaries.isEmpty {
-                    EmptyStatsState()
+                    ZStack {
+                        ScreenBackground()
+                        EmptyStatsState()
+                    }
                 } else {
-                    ScrollView {
-                        VStack(spacing: 12) {
-                            ForEach(summaries) { summary in
-                                NavigationLink {
-                                    ExerciseProgressView(exerciseName: summary.name)
-                                } label: {
-                                    StatSummaryCard(summary: summary, unit: unitPref.unit)
+                    List {
+                        Section {
+                            HStack(spacing: 18) {
+                                OverviewMetric(value: "\(summaries.count)", label: "EXERCISES")
+                                Divider().frame(height: 28)
+                                OverviewMetric(value: "\(sessionsThisMonth)", label: "DAYS THIS MONTH")
+                                Spacer()
+                            }
+                            .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
+                        }
+
+                        if !activeSummaries.isEmpty {
+                            Section {
+                                ForEach(activeSummaries) { summary in
+                                    NavigationLink {
+                                        ExerciseProgressView(exerciseName: summary.name)
+                                    } label: {
+                                        ExerciseStatRow(summary: summary, unit: unitPref.unit)
+                                    }
                                 }
-                                .buttonStyle(.plain)
+                            } header: {
+                                Text("Active · last 2 weeks")
                             }
                         }
-                        .padding(.horizontal, 16)
-                        .padding(.top, 4)
-                        .padding(.bottom, 24)
+
+                        if !olderSummaries.isEmpty {
+                            Section {
+                                ForEach(olderSummaries) { summary in
+                                    NavigationLink {
+                                        ExerciseProgressView(exerciseName: summary.name)
+                                    } label: {
+                                        ExerciseStatRow(summary: summary, unit: unitPref.unit)
+                                    }
+                                }
+                            } header: {
+                                Text("Older")
+                            }
+                        }
                     }
+                    .listStyle(.insetGrouped)
                 }
             }
             .navigationTitle("Stats")
@@ -78,35 +124,47 @@ struct StatsView: View {
     }
 }
 
-private struct StatSummaryCard: View {
+private struct OverviewMetric: View {
+    let value: String
+    let label: String
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 2) {
+            Text(value)
+                .font(.title2.bold().monospacedDigit())
+            Text(label)
+                .font(.caption2.bold())
+                .tracking(0.6)
+                .foregroundStyle(.secondary)
+        }
+    }
+}
+
+private struct ExerciseStatRow: View {
     let summary: StatsView.ExerciseSummary
     let unit: WeightUnit
 
     var body: some View {
-        HStack(spacing: 14) {
-            VStack(alignment: .leading, spacing: 6) {
+        HStack(spacing: 12) {
+            VStack(alignment: .leading, spacing: 2) {
                 Text(summary.name)
-                    .font(.headline)
+                    .font(.body.weight(.medium))
                     .foregroundStyle(.primary)
                 Text(summary.lastSessionDate.formatted(.relative(presentation: .named)))
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            VStack(alignment: .trailing, spacing: 4) {
+            VStack(alignment: .trailing, spacing: 2) {
                 Text(summary.latestE1RM.formattedWeight(unit: unit))
-                    .font(.title3.bold().monospacedDigit())
+                    .font(.subheadline.bold().monospacedDigit())
                 Text("e1RM")
-                    .font(.caption2.bold())
-                    .tracking(0.6)
+                    .font(.caption2)
                     .foregroundStyle(.secondary)
             }
             TrendBadge(delta: summary.trend, unit: unit)
-            Image(systemName: "chevron.right")
-                .font(.caption.bold())
-                .foregroundStyle(.tertiary)
         }
-        .card()
+        .padding(.vertical, 4)
     }
 }
 
