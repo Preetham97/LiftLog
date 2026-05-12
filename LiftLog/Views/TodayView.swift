@@ -85,6 +85,22 @@ struct TodaySessionView: View {
                     )
                 }
 
+                Button {
+                    showingFinishConfirm = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Text(session == nil ? "Skip day & advance" : "End day & advance")
+                            .fontWeight(.semibold)
+                        Image(systemName: "arrow.right")
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .foregroundStyle(.primary)
+                    .background(Color(.secondarySystemGroupedBackground))
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.pillCorner, style: .continuous))
+                }
+                .padding(.top, 8)
+
                 Spacer(minLength: 20)
             }
             .padding(.horizontal, 16)
@@ -95,19 +111,6 @@ struct TodaySessionView: View {
             resetSessionForDayChange()
         }
         .toolbar {
-            ToolbarItem(placement: .primaryAction) {
-                Button {
-                    showingFinishConfirm = true
-                } label: {
-                    HStack(spacing: 4) {
-                        Text(session == nil ? "Skip day" : "End day")
-                            .fontWeight(.semibold)
-                        Image(systemName: "arrow.right")
-                            .font(.caption.bold())
-                    }
-                    .foregroundStyle(.primary)
-                }
-            }
             ToolbarItemGroup(placement: .keyboard) {
                 Spacer()
                 Button("Done") {
