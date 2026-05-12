@@ -16,6 +16,7 @@
 		4C314E95D519E962793322CD /* ExerciseHistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 6AA146B6EA0B7A24E8E100C7 /* ExerciseHistoryView.swift */; };
 		51C120DB00EAC0CEFBEDDC07 /* StatsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = E5B4CC643AF323605D8ABB92 /* StatsView.swift */; };
 		54C0938DA20D2F939A039447 /* TodayView.swift in Sources */ = {isa = PBXBuildFile; fileRef = C8BBE9B4E63429EEBFADC87A /* TodayView.swift */; };
+		62DCC174CB130B4F1361926B /* RoutineTemplate.swift in Sources */ = {isa = PBXBuildFile; fileRef = 48A3CF504DABAB688A6E0DD3 /* RoutineTemplate.swift */; };
 		66F90AA65C3E362A0F3960A6 /* ExerciseNameMatching.swift in Sources */ = {isa = PBXBuildFile; fileRef = 319E9A48DD01E242E09B767B /* ExerciseNameMatching.swift */; };
 		96E0037CD2E71EA1E2F330A9 /* HistoryView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 8CFF229A8CB97B3775877FD7 /* HistoryView.swift */; };
 		B6EC5D85C7A120E7FFFA0B1F /* RoutinesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00DCFAB3C47824B2CC92E4E /* RoutinesView.swift */; };
@@ -30,6 +31,7 @@
 		319E9A48DD01E242E09B767B /* ExerciseNameMatching.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseNameMatching.swift; sourceTree = "<group>"; };
 		3B8ACB3F89A24AED845F286A /* LiftLogApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LiftLogApp.swift; sourceTree = "<group>"; };
 		3BC8A3799D13349B6E47E369 /* Models.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Models.swift; sourceTree = "<group>"; };
+		48A3CF504DABAB688A6E0DD3 /* RoutineTemplate.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutineTemplate.swift; sourceTree = "<group>"; };
 		6AA146B6EA0B7A24E8E100C7 /* ExerciseHistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ExerciseHistoryView.swift; sourceTree = "<group>"; };
 		6CA6CEF5F15C02AD8BE2AB14 /* SplashView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SplashView.swift; sourceTree = "<group>"; };
 		85034D1B9231C25CDE0F365E /* LiftLog.app */ = {isa = PBXFileReference; includeInIndex = 0; lastKnownFileType = wrapper.application; path = LiftLog.app; sourceTree = BUILT_PRODUCTS_DIR; };
@@ -73,6 +75,7 @@
 			isa = PBXGroup;
 			children = (
 				319E9A48DD01E242E09B767B /* ExerciseNameMatching.swift */,
+				48A3CF504DABAB688A6E0DD3 /* RoutineTemplate.swift */,
 				0DEC03019432C9E796D74D1B /* Theme.swift */,
 				86EEAB3ABE9B72AF323A6E4D /* UnitPreference.swift */,
 			);
@@ -180,6 +183,7 @@
 				485E8C24AD59D52F10C36FE5 /* LiftLogApp.swift in Sources */,
 				0EADE4D44627859DC8DC41C5 /* Models.swift in Sources */,
 				141A8FA4F70C64BD03FA09CB /* RootView.swift in Sources */,
+				62DCC174CB130B4F1361926B /* RoutineTemplate.swift in Sources */,
 				B6EC5D85C7A120E7FFFA0B1F /* RoutinesView.swift in Sources */,
 				B8F5E2A34071DD01A27E4F7E /* SettingsView.swift in Sources */,
 				0DA83C8815335F2EB1E3736C /* SplashView.swift in Sources */,

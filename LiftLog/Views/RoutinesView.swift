@@ -11,7 +11,10 @@ struct RoutinesView: View {
             ZStack {
                 ScreenBackground()
                 if routines.isEmpty {
-                    EmptyRoutinesState(onCreate: createAndOpen)
+                    EmptyRoutinesState(
+                        onUseTemplate: { createFromTemplate(.fiveDaySplit) },
+                        onBlank: createBlank
+                    )
                 } else {
                     ScrollView {
                         VStack(spacing: 14) {
@@ -34,7 +37,18 @@ struct RoutinesView: View {
             }
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    Button(action: createAndOpen) {
+                    Menu {
+                        Button {
+                            createBlank()
+                        } label: {
+                            Label("Blank routine", systemImage: "doc")
+                        }
+                        Button {
+                            createFromTemplate(.fiveDaySplit)
+                        } label: {
+                            Label("5-Day Split (starter)", systemImage: "sparkles")
+                        }
+                    } label: {
                         Image(systemName: "plus.circle.fill")
                             .font(.title3)
                             .foregroundStyle(Theme.accent)
@@ -44,7 +58,7 @@ struct RoutinesView: View {
         }
     }
 
-    private func createAndOpen() {
+    private func createBlank() {
         let shouldBeActive = !routines.contains(where: \.isActive)
         let routine = Routine(name: "New Routine", isActive: shouldBeActive)
         context.insert(routine)
@@ -53,11 +67,32 @@ struct RoutinesView: View {
             context.insert(day)
             routine.days.append(day)
         }
+        save(routine)
+    }
+
+    private func createFromTemplate(_ template: RoutineTemplate) {
+        let shouldBeActive = !routines.contains(where: \.isActive)
+        let routine = Routine(name: template.name, isActive: shouldBeActive)
+        context.insert(routine)
+        for (i, dayTemplate) in template.days.enumerated() {
+            let day = RoutineDay(name: dayTemplate.name, order: i)
+            context.insert(day)
+            routine.days.append(day)
+            for (j, exName) in dayTemplate.exercises.enumerated() {
+                let ex = Exercise(name: exName, order: j)
+                context.insert(ex)
+                day.exercises.append(ex)
+            }
+        }
+        save(routine)
+    }
+
+    private func save(_ routine: Routine) {
         do {
             try context.save()
             path.append(routine)
         } catch {
-            print("[LiftLog] createAndOpen failed: \(error)")
+            print("[LiftLog] save new routine failed: \(error)")
         }
     }
 
@@ -68,30 +103,45 @@ struct RoutinesView: View {
 }
 
 private struct EmptyRoutinesState: View {
-    let onCreate: () -> Void
+    let onUseTemplate: () -> Void
+    let onBlank: () -> Void
 
     var body: some View {
-        VStack(spacing: 18) {
+        VStack(spacing: 16) {
             Image(systemName: "list.bullet.rectangle.fill")
-                .font(.system(size: 52, weight: .light))
+                .font(.system(size: 48, weight: .light))
                 .foregroundStyle(Theme.accent)
             Text("No routines yet")
                 .font(.title2.bold())
-            Text("Build your first routine cycle — push/pull/legs, upper/lower, anything goes.")
+            Text("Start with a 5-day split or build your own from scratch.")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 40)
-            Button(action: onCreate) {
-                Label("Create routine", systemImage: "plus")
-                    .font(.subheadline.weight(.semibold))
-                    .padding(.horizontal, 18)
-                    .padding(.vertical, 12)
-                    .background(Theme.accent)
-                    .foregroundStyle(.white)
-                    .clipShape(Capsule())
+
+            Button(action: onUseTemplate) {
+                VStack(alignment: .leading, spacing: 6) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "sparkles")
+                        Text("5-Day Split")
+                            .fontWeight(.semibold)
+                    }
+                    Text("Chest · Back · Legs · Shoulders · Mixed")
+                        .font(.caption)
+                        .foregroundStyle(.white.opacity(0.85))
+                }
+                .frame(maxWidth: 280, alignment: .leading)
+                .padding(.horizontal, 18)
+                .padding(.vertical, 14)
+                .background(Theme.accent)
+                .foregroundStyle(.white)
+                .clipShape(RoundedRectangle(cornerRadius: 14, style: .continuous))
             }
             .buttonStyle(.plain)
-            .padding(.top, 6)
+            .padding(.top, 8)
+
+            Button("Or start blank", action: onBlank)
+                .font(.subheadline.weight(.medium))
+                .foregroundStyle(.secondary)
         }
     }
 }
