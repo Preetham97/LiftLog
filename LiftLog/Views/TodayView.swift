@@ -100,7 +100,7 @@ struct TodaySessionView: View {
                     showingFinishConfirm = true
                 } label: {
                     HStack(spacing: 4) {
-                        Text(session == nil ? "Skip" : "Finish")
+                        Text(session == nil ? "Skip day" : "End day")
                             .fontWeight(.semibold)
                         Image(systemName: "arrow.right")
                             .font(.caption.bold())
