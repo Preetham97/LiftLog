@@ -4,21 +4,19 @@ import SwiftData
 struct RoutinesView: View {
     @Environment(\.modelContext) private var context
     @Query(sort: \Routine.createdAt) private var routines: [Routine]
-    @State private var showingNew = false
+    @State private var path: [Routine] = []
 
     var body: some View {
-        NavigationStack {
+        NavigationStack(path: $path) {
             ZStack {
                 ScreenBackground()
                 if routines.isEmpty {
-                    EmptyRoutinesState()
+                    EmptyRoutinesState(onCreate: createAndOpen)
                 } else {
                     ScrollView {
                         VStack(spacing: 14) {
                             ForEach(routines) { routine in
-                                NavigationLink {
-                                    RoutineDetailView(routine: routine)
-                                } label: {
+                                NavigationLink(value: routine) {
                                     RoutineCard(routine: routine, onMakeActive: { makeActive(routine) })
                                 }
                                 .buttonStyle(.plain)
@@ -31,20 +29,35 @@ struct RoutinesView: View {
                 }
             }
             .navigationTitle("Routines")
+            .navigationDestination(for: Routine.self) { routine in
+                RoutineDetailView(routine: routine)
+            }
             .toolbar {
                 ToolbarItem(placement: .primaryAction) {
-                    Button {
-                        showingNew = true
-                    } label: {
+                    Button(action: createAndOpen) {
                         Image(systemName: "plus.circle.fill")
                             .font(.title3)
                             .foregroundStyle(Theme.accent)
                     }
                 }
             }
-            .sheet(isPresented: $showingNew) {
-                NewRoutineSheet()
-            }
+        }
+    }
+
+    private func createAndOpen() {
+        let shouldBeActive = !routines.contains(where: \.isActive)
+        let routine = Routine(name: "New Routine", isActive: shouldBeActive)
+        context.insert(routine)
+        for (i, name) in ["Push", "Pull", "Legs"].enumerated() {
+            let day = RoutineDay(name: name, order: i)
+            context.insert(day)
+            routine.days.append(day)
+        }
+        do {
+            try context.save()
+            path.append(routine)
+        } catch {
+            print("[LiftLog] createAndOpen failed: \(error)")
         }
     }
 
@@ -55,6 +68,8 @@ struct RoutinesView: View {
 }
 
 private struct EmptyRoutinesState: View {
+    let onCreate: () -> Void
+
     var body: some View {
         VStack(spacing: 18) {
             Image(systemName: "list.bullet.rectangle.fill")
@@ -62,10 +77,21 @@ private struct EmptyRoutinesState: View {
                 .foregroundStyle(Theme.accent)
             Text("No routines yet")
                 .font(.title2.bold())
-            Text("Tap + to build your first routine cycle — push/pull/legs, upper/lower, anything goes.")
+            Text("Build your first routine cycle — push/pull/legs, upper/lower, anything goes.")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 40)
+            Button(action: onCreate) {
+                Label("Create routine", systemImage: "plus")
+                    .font(.subheadline.weight(.semibold))
+                    .padding(.horizontal, 18)
+                    .padding(.vertical, 12)
+                    .background(Theme.accent)
+                    .foregroundStyle(.white)
+                    .clipShape(Capsule())
+            }
+            .buttonStyle(.plain)
+            .padding(.top, 6)
         }
     }
 }
@@ -125,93 +151,14 @@ private struct MetricItem: View {
     }
 }
 
-private struct NewRoutineSheet: View {
-    @Environment(\.dismiss) private var dismiss
-    @Environment(\.modelContext) private var context
-    @Query private var existingRoutines: [Routine]
-
-    @State private var name = ""
-    @State private var dayNames: [String] = ["Push", "Pull", "Legs"]
-    @State private var errorMessage: String?
-
-    private var canCreate: Bool {
-        !name.trimmingCharacters(in: .whitespaces).isEmpty
-            && dayNames.contains { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
-    }
-
-    var body: some View {
-        NavigationStack {
-            Form {
-                Section("Routine") {
-                    TextField("Name (e.g. PPL)", text: $name)
-                }
-                Section("Days in cycle") {
-                    ForEach(dayNames.indices, id: \.self) { i in
-                        TextField("Day \(i + 1)", text: $dayNames[i])
-                    }
-                    .onDelete { offsets in
-                        dayNames.remove(atOffsets: offsets)
-                    }
-                    Button {
-                        dayNames.append("Day \(dayNames.count + 1)")
-                    } label: {
-                        Label("Add day", systemImage: "plus")
-                    }
-                }
-            }
-            .navigationTitle("New Routine")
-            .navigationBarTitleDisplayMode(.inline)
-            .toolbar {
-                ToolbarItem(placement: .cancellationAction) {
-                    Button("Cancel") { dismiss() }
-                }
-                ToolbarItem(placement: .confirmationAction) {
-                    Button("Create") { create() }
-                        .fontWeight(.semibold)
-                        .disabled(!canCreate)
-                }
-            }
-            .alert("Couldn't save routine", isPresented: Binding(
-                get: { errorMessage != nil },
-                set: { if !$0 { errorMessage = nil } }
-            )) {
-                Button("OK", role: .cancel) {}
-            } message: {
-                Text(errorMessage ?? "")
-            }
-        }
-    }
-
-    private func create() {
-        let trimmedName = name.trimmingCharacters(in: .whitespaces)
-        guard !trimmedName.isEmpty else { return }
-
-        let shouldBeActive = !existingRoutines.contains(where: \.isActive)
-        let routine = Routine(name: trimmedName, isActive: shouldBeActive)
-        context.insert(routine)
-
-        for (i, dn) in dayNames.enumerated() {
-            let trimmed = dn.trimmingCharacters(in: .whitespaces)
-            guard !trimmed.isEmpty else { continue }
-            let day = RoutineDay(name: trimmed, order: i)
-            context.insert(day)
-            routine.days.append(day)
-        }
-
-        do {
-            try context.save()
-            dismiss()
-        } catch {
-            errorMessage = "\(error)"
-            print("[LiftLog] Failed to save routine: \(error)")
-        }
-    }
-}
+// MARK: - Routine detail (flat, inline-expandable days)
 
 struct RoutineDetailView: View {
     @Environment(\.modelContext) private var context
     @Bindable var routine: Routine
     @Query private var allRoutines: [Routine]
+
+    @State private var expandedDayID: PersistentIdentifier?
 
     var body: some View {
         List {
@@ -240,11 +187,16 @@ struct RoutineDetailView: View {
 
             Section {
                 ForEach(routine.orderedDays) { day in
-                    NavigationLink {
-                        RoutineDayDetailView(day: day)
-                    } label: {
-                        DayRow(day: day, isNext: day.id == routine.nextDay?.id)
-                    }
+                    DayDisclosure(
+                        day: day,
+                        isNext: day.id == routine.nextDay?.id,
+                        isExpanded: Binding(
+                            get: { expandedDayID == day.persistentModelID },
+                            set: { expanded in
+                                expandedDayID = expanded ? day.persistentModelID : nil
+                            }
+                        )
+                    )
                     .swipeActions(edge: .leading, allowsFullSwipe: true) {
                         if day.id != routine.nextDay?.id {
                             Button {
@@ -271,18 +223,18 @@ struct RoutineDetailView: View {
             } header: {
                 Text("Cycle")
             } footer: {
-                Text("Swipe a day right to make it the next session.")
+                Text("Tap a day to expand and edit its exercises. Swipe right to set as next, left to delete.")
             }
         }
-        .navigationTitle(routine.name)
+        .navigationTitle(routine.name.isEmpty ? "Routine" : routine.name)
         .navigationBarTitleDisplayMode(.inline)
     }
 
     private func addDay() {
         let order = (routine.days.map(\.order).max() ?? -1) + 1
         let day = RoutineDay(name: "Day \(order + 1)", order: order)
-        day.routine = routine
         context.insert(day)
+        routine.days.append(day)
         try? context.save()
     }
 
@@ -299,103 +251,76 @@ struct RoutineDetailView: View {
     }
 }
 
-private struct DayRow: View {
-    let day: RoutineDay
-    let isNext: Bool
-
-    var body: some View {
-        HStack(spacing: 12) {
-            ZStack {
-                Circle()
-                    .fill(isNext ? Theme.accent : Color(.tertiarySystemGroupedBackground))
-                    .frame(width: 32, height: 32)
-                Image(systemName: isNext ? "play.fill" : "calendar")
-                    .font(.footnote)
-                    .foregroundStyle(isNext ? .white : .secondary)
-            }
-            VStack(alignment: .leading, spacing: 2) {
-                HStack(spacing: 6) {
-                    Text(day.name)
-                        .font(.body.weight(.medium))
-                    if isNext {
-                        PillLabel(text: "NEXT")
-                    }
-                }
-                Text("\(day.exercises.count) lift\(day.exercises.count == 1 ? "" : "s")")
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
-            }
-            Spacer()
-        }
-    }
-}
-
-struct RoutineDayDetailView: View {
+private struct DayDisclosure: View {
     @Environment(\.modelContext) private var context
     @Bindable var day: RoutineDay
-    @State private var newName = ""
+    let isNext: Bool
+    @Binding var isExpanded: Bool
+
+    @State private var newExerciseName: String = ""
 
     var body: some View {
-        ZStack {
-            ScreenBackground()
-            ScrollView {
-                VStack(spacing: 16) {
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("DAY")
-                            .font(.caption2.bold())
-                            .tracking(0.8)
-                            .foregroundStyle(.secondary)
-                        TextField("Day name", text: $day.name)
-                            .font(.title2.bold())
-                            .textFieldStyle(.plain)
+        DisclosureGroup(isExpanded: $isExpanded) {
+            VStack(spacing: 6) {
+                ForEach(day.orderedExercises) { ex in
+                    InlineExerciseRow(exercise: ex, onDelete: { delete(ex) })
+                }
+
+                HStack(spacing: 8) {
+                    TextField("Add exercise", text: $newExerciseName)
+                        .textFieldStyle(.plain)
+                        .submitLabel(.done)
+                        .onSubmit(addExercise)
+                    Button(action: addExercise) {
+                        Image(systemName: "plus.circle.fill")
+                            .foregroundStyle(canAdd ? Theme.accent : .secondary)
                     }
-                    .card()
-
-                    VStack(alignment: .leading, spacing: 10) {
-                        Text("EXERCISES")
-                            .font(.caption2.bold())
-                            .tracking(0.8)
-                            .foregroundStyle(.secondary)
-                            .padding(.horizontal, 4)
-
-                        VStack(spacing: 8) {
-                            ForEach(day.orderedExercises) { ex in
-                                ExerciseRow(exercise: ex, onDelete: { delete(ex) })
-                            }
-                            HStack(spacing: 8) {
-                                TextField("Add exercise (e.g. Bench Press)", text: $newName)
-                                    .padding(.vertical, 10)
-                                    .padding(.horizontal, 12)
-                                    .background(Color(.secondarySystemGroupedBackground))
-                                    .clipShape(RoundedRectangle(cornerRadius: Theme.pillCorner, style: .continuous))
-                                Button(action: addExercise) {
-                                    Image(systemName: "plus.circle.fill")
-                                        .font(.title2)
-                                        .foregroundStyle(newName.trimmingCharacters(in: .whitespaces).isEmpty ? .secondary : Theme.accent)
-                                }
-                                .disabled(newName.trimmingCharacters(in: .whitespaces).isEmpty)
-                            }
+                    .buttonStyle(.plain)
+                    .disabled(!canAdd)
+                }
+                .padding(.vertical, 6)
+            }
+            .padding(.top, 4)
+        } label: {
+            HStack(spacing: 12) {
+                ZStack {
+                    Circle()
+                        .fill(isNext ? Theme.accent : Color(.tertiarySystemGroupedBackground))
+                        .frame(width: 30, height: 30)
+                    Image(systemName: isNext ? "play.fill" : "calendar")
+                        .font(.caption)
+                        .foregroundStyle(isNext ? .white : .secondary)
+                }
+                VStack(alignment: .leading, spacing: 2) {
+                    HStack(spacing: 6) {
+                        TextField("Day name", text: $day.name)
+                            .font(.body.weight(.medium))
+                            .textFieldStyle(.plain)
+                        if isNext {
+                            PillLabel(text: "NEXT")
                         }
                     }
+                    Text("\(day.exercises.count) lift\(day.exercises.count == 1 ? "" : "s")")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
                 }
-                .padding(.horizontal, 16)
-                .padding(.top, 8)
-                .padding(.bottom, 24)
             }
         }
-        .navigationTitle(day.name)
-        .navigationBarTitleDisplayMode(.inline)
+    }
+
+    private var canAdd: Bool {
+        !newExerciseName.trimmingCharacters(in: .whitespaces).isEmpty
     }
 
     private func addExercise() {
-        let trimmed = newName.trimmingCharacters(in: .whitespaces)
+        let trimmed = newExerciseName.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
         let order = (day.exercises.map(\.order).max() ?? -1) + 1
         let ex = Exercise(name: trimmed, order: order)
-        ex.day = day
         context.insert(ex)
+        day.exercises.append(ex)
         try? context.save()
-        newName = ""
+        newExerciseName = ""
     }
 
     private func delete(_ exercise: Exercise) {
@@ -404,32 +329,23 @@ struct RoutineDayDetailView: View {
     }
 }
 
-private struct ExerciseRow: View {
+private struct InlineExerciseRow: View {
     @Bindable var exercise: Exercise
     let onDelete: () -> Void
 
     var body: some View {
-        HStack(spacing: 12) {
+        HStack(spacing: 10) {
             Image(systemName: "dumbbell.fill")
-                .font(.callout)
+                .font(.caption)
                 .foregroundStyle(Theme.accent)
-                .frame(width: 36, height: 36)
-                .background(Theme.accentSoft)
-                .clipShape(Circle())
             TextField("Exercise name", text: $exercise.name)
                 .textFieldStyle(.plain)
-            Spacer()
             Button(role: .destructive, action: onDelete) {
                 Image(systemName: "minus.circle.fill")
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
         }
-        .padding(.vertical, 10)
-        .padding(.horizontal, 14)
-        .background(
-            RoundedRectangle(cornerRadius: Theme.pillCorner, style: .continuous)
-                .fill(Color(.secondarySystemGroupedBackground))
-        )
+        .padding(.vertical, 4)
     }
 }
