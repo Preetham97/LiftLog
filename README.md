@@ -17,6 +17,8 @@ A clean iOS workout tracker focused on **progressive overload**: every time you 
   with logged sessions get a green dot; tap one for a read-only view of
   what you did.
 - **kg / lbs** toggle.
+- **Branded splash screen** on launch — logo + tagline fades in, then
+  hands off to the app after ~1.3s.
 
 ## Stack
 

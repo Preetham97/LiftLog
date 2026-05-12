@@ -5,7 +5,7 @@ import SwiftData
 struct LiftLogApp: App {
     var body: some Scene {
         WindowGroup {
-            RootView()
+            AppRoot()
         }
         .modelContainer(for: [
             Routine.self,
@@ -15,5 +15,27 @@ struct LiftLogApp: App {
             LoggedExercise.self,
             SetEntry.self
         ])
+    }
+}
+
+private struct AppRoot: View {
+    @State private var showSplash = true
+
+    var body: some View {
+        ZStack {
+            if showSplash {
+                SplashView()
+                    .transition(.opacity)
+            } else {
+                RootView()
+                    .transition(.opacity)
+            }
+        }
+        .task {
+            try? await Task.sleep(nanoseconds: 1_300_000_000)
+            withAnimation(.easeInOut(duration: 0.4)) {
+                showSplash = false
+            }
+        }
     }
 }
