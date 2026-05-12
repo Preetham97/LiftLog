@@ -88,13 +88,15 @@ final class WorkoutSession {
 final class LoggedExercise {
     var exerciseName: String = ""
     var order: Int = 0
+    var isCompleted: Bool = false
     var session: WorkoutSession?
     @Relationship(deleteRule: .cascade, inverse: \SetEntry.loggedExercise)
     var sets: [SetEntry] = []
 
-    init(exerciseName: String, order: Int) {
+    init(exerciseName: String, order: Int, isCompleted: Bool = false) {
         self.exerciseName = exerciseName
         self.order = order
+        self.isCompleted = isCompleted
     }
 
     var orderedSets: [SetEntry] {

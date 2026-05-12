@@ -213,6 +213,18 @@ private struct ExerciseLogCard: View {
     }
 
     var body: some View {
+        if let log = currentLog, log.isCompleted {
+            collapsedView(for: log)
+        } else {
+            expandedView
+        }
+    }
+
+    private var hasUsefulSets: Bool {
+        currentLog?.orderedSets.contains { $0.weight > 0 && $0.reps > 0 } ?? false
+    }
+
+    private var expandedView: some View {
         VStack(alignment: .leading, spacing: 14) {
             HStack {
                 Text(exercise.name)
@@ -259,6 +271,23 @@ private struct ExerciseLogCard: View {
                     .padding(.vertical, 8)
                 }
                 .buttonStyle(.plain)
+
+                Button {
+                    finishExercise(log)
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "checkmark.seal.fill")
+                        Text("Done with \(exercise.name)")
+                            .fontWeight(.semibold)
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 12)
+                    .background(hasUsefulSets ? Color.green.opacity(0.18) : Color(.tertiarySystemGroupedBackground))
+                    .foregroundStyle(hasUsefulSets ? Color.green : .secondary)
+                    .clipShape(RoundedRectangle(cornerRadius: Theme.pillCorner, style: .continuous))
+                }
+                .buttonStyle(.plain)
+                .disabled(!hasUsefulSets)
             } else {
                 Button {
                     startLogging()
@@ -277,6 +306,47 @@ private struct ExerciseLogCard: View {
             }
         }
         .card()
+    }
+
+    private func collapsedView(for log: LoggedExercise) -> some View {
+        let useful = log.orderedSets.filter { $0.weight > 0 && $0.reps > 0 }
+        let topSet = useful.max { $0.weight < $1.weight }
+        return Button {
+            log.isCompleted = false
+            try? context.save()
+        } label: {
+            HStack(spacing: 12) {
+                Image(systemName: "checkmark.seal.fill")
+                    .font(.title3)
+                    .foregroundStyle(Color.green)
+                    .frame(width: 36, height: 36)
+                    .background(Color.green.opacity(0.15))
+                    .clipShape(Circle())
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(exercise.name)
+                        .font(.subheadline.weight(.semibold))
+                    HStack(spacing: 6) {
+                        Text("\(useful.count) set\(useful.count == 1 ? "" : "s")")
+                        if let top = topSet {
+                            Text("•").foregroundStyle(.tertiary)
+                            Text("top \(top.weight.formattedWeight(unit: unitPref.unit)) × \(top.reps)")
+                        }
+                    }
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                }
+                Spacer()
+                Image(systemName: "chevron.right")
+                    .font(.caption.bold())
+                    .foregroundStyle(.tertiary)
+            }
+            .padding(12)
+            .background(
+                RoundedRectangle(cornerRadius: Theme.cardCorner, style: .continuous)
+                    .fill(Color(.secondarySystemGroupedBackground))
+            )
+        }
+        .buttonStyle(.plain)
     }
 
     private func startLogging() {
@@ -301,6 +371,22 @@ private struct ExerciseLogCard: View {
 
     private func delete(_ entry: SetEntry, from log: LoggedExercise) {
         context.delete(entry)
+        try? context.save()
+    }
+
+    private func finishExercise(_ log: LoggedExercise) {
+        // Drop the trailing empty placeholder set if the user left one behind.
+        if let last = log.orderedSets.last,
+           last.weight == 0, last.reps == 0, !last.isCompleted {
+            context.delete(last)
+        }
+        // Auto-mark any still-pending non-empty sets as completed so e1RM
+        // and volume calculations include them.
+        for s in log.orderedSets where !s.isCompleted && s.weight > 0 && s.reps > 0 {
+            s.isCompleted = true
+            s.completedAt = .now
+        }
+        log.isCompleted = true
         try? context.save()
     }
 
