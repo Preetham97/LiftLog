@@ -218,6 +218,28 @@ struct ExerciseProgressView: View {
                         )
 
                         RecentSessionsCard(points: sessionPoints, unit: unitPref.unit)
+
+                        NavigationLink {
+                            ExerciseHistoryView(exerciseName: exerciseName)
+                        } label: {
+                            HStack {
+                                Image(systemName: "clock.arrow.circlepath")
+                                Text("View full history")
+                                    .fontWeight(.semibold)
+                                Spacer()
+                                Image(systemName: "chevron.right")
+                                    .font(.caption.bold())
+                                    .foregroundStyle(.tertiary)
+                            }
+                            .padding(.horizontal, 16)
+                            .padding(.vertical, 14)
+                            .background(
+                                RoundedRectangle(cornerRadius: Theme.cardCorner, style: .continuous)
+                                    .fill(Color(.secondarySystemGroupedBackground))
+                            )
+                            .foregroundStyle(.primary)
+                        }
+                        .buttonStyle(.plain)
                     }
                 }
                 .padding(.horizontal, 16)

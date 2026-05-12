@@ -221,6 +221,17 @@ private struct ExerciseLogCard: View {
                 if let log = currentLog {
                     PillLabel(text: "\(log.sets.count) SET\(log.sets.count == 1 ? "" : "S")")
                 }
+                NavigationLink {
+                    ExerciseHistoryView(exerciseName: exercise.name)
+                } label: {
+                    Image(systemName: "clock.arrow.circlepath")
+                        .font(.callout)
+                        .foregroundStyle(.secondary)
+                        .padding(6)
+                        .background(Color(.tertiarySystemGroupedBackground))
+                        .clipShape(Circle())
+                }
+                .buttonStyle(.plain)
             }
 
             PreviousSessionStrip(previous: previousSession, unit: unitPref.unit)

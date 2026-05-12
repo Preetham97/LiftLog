@@ -11,6 +11,8 @@ A clean iOS workout tracker focused on **progressive overload**: every time you 
   - **Estimated 1RM** (Epley) — strength trend.
   - **Total volume** (weight × reps × sets) — work trend.
   - Trend badges on the index show session-over-session change.
+- **Exercise history** — full set-by-set log for every exercise, reachable
+  from the exercise card on Today (clock icon) or from a stats screen.
 - **kg / lbs** toggle.
 
 ## Stack
