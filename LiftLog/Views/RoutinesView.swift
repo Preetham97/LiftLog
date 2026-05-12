@@ -157,8 +157,24 @@ struct RoutineDetailView: View {
     @Environment(\.modelContext) private var context
     @Bindable var routine: Routine
     @Query private var allRoutines: [Routine]
+    @Query private var allExercises: [Exercise]
+    @Query private var allLogs: [LoggedExercise]
 
     @State private var expandedDayID: PersistentIdentifier?
+
+    private var knownExerciseNames: [String] {
+        var bestByKey: [String: String] = [:]
+        for name in allExercises.map(\.name) + allLogs.map(\.exerciseName) {
+            let key = name.normalizedExerciseKey
+            guard !key.isEmpty else { continue }
+            // Prefer the longest variant as the canonical display
+            // (usually the most carefully-typed one).
+            if (bestByKey[key]?.count ?? 0) < name.count {
+                bestByKey[key] = name
+            }
+        }
+        return bestByKey.values.sorted()
+    }
 
     var body: some View {
         List {
@@ -190,6 +206,7 @@ struct RoutineDetailView: View {
                     DayDisclosure(
                         day: day,
                         isNext: day.id == routine.nextDay?.id,
+                        knownExerciseNames: knownExerciseNames,
                         isExpanded: Binding(
                             get: { expandedDayID == day.persistentModelID },
                             set: { expanded in
@@ -255,9 +272,25 @@ private struct DayDisclosure: View {
     @Environment(\.modelContext) private var context
     @Bindable var day: RoutineDay
     let isNext: Bool
+    let knownExerciseNames: [String]
     @Binding var isExpanded: Bool
 
     @State private var newExerciseName: String = ""
+
+    private var suggestions: [String] {
+        let query = newExerciseName.normalizedExerciseKey
+        guard query.count >= 1 else { return [] }
+        let existingKeysInDay = Set(day.exercises.map { $0.name.normalizedExerciseKey })
+        return knownExerciseNames
+            .filter { name in
+                let key = name.normalizedExerciseKey
+                return key != query
+                    && key.contains(query)
+                    && !existingKeysInDay.contains(key)
+            }
+            .prefix(5)
+            .map { $0 }
+    }
 
     var body: some View {
         DisclosureGroup(isExpanded: $isExpanded) {
@@ -269,6 +302,7 @@ private struct DayDisclosure: View {
                 HStack(spacing: 8) {
                     TextField("Add exercise", text: $newExerciseName)
                         .textFieldStyle(.plain)
+                        .autocorrectionDisabled()
                         .submitLabel(.done)
                         .onSubmit(addExercise)
                     Button(action: addExercise) {
@@ -279,6 +313,37 @@ private struct DayDisclosure: View {
                     .disabled(!canAdd)
                 }
                 .padding(.vertical, 6)
+
+                if !suggestions.isEmpty {
+                    VStack(alignment: .leading, spacing: 0) {
+                        ForEach(suggestions, id: \.self) { name in
+                            Button {
+                                newExerciseName = name
+                                addExercise()
+                            } label: {
+                                HStack(spacing: 8) {
+                                    Image(systemName: "arrow.up.left")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                    Text(name)
+                                        .font(.callout)
+                                        .foregroundStyle(.primary)
+                                    Spacer()
+                                }
+                                .padding(.vertical, 8)
+                                .padding(.horizontal, 6)
+                            }
+                            .buttonStyle(.plain)
+                            if name != suggestions.last {
+                                Divider().opacity(0.4)
+                            }
+                        }
+                    }
+                    .background(
+                        RoundedRectangle(cornerRadius: 10, style: .continuous)
+                            .fill(Color(.tertiarySystemGroupedBackground))
+                    )
+                }
             }
             .padding(.top, 4)
         } label: {
@@ -315,8 +380,18 @@ private struct DayDisclosure: View {
     private func addExercise() {
         let trimmed = newExerciseName.trimmingCharacters(in: .whitespaces)
         guard !trimmed.isEmpty else { return }
+        let key = trimmed.normalizedExerciseKey
+
+        // Don't add the same exercise twice on the same day
+        if day.exercises.contains(where: { $0.name.normalizedExerciseKey == key }) {
+            newExerciseName = ""
+            return
+        }
+
+        // Reuse the canonical capitalization if we've seen this lift before
+        let canonical = knownExerciseNames.first { $0.normalizedExerciseKey == key } ?? trimmed
         let order = (day.exercises.map(\.order).max() ?? -1) + 1
-        let ex = Exercise(name: trimmed, order: order)
+        let ex = Exercise(name: canonical, order: order)
         context.insert(ex)
         day.exercises.append(ex)
         try? context.save()

@@ -200,8 +200,9 @@ private struct ExerciseLogCard: View {
     }
 
     private var previousLogs: [LoggedExercise] {
-        allLogs.filter { log in
-            log.exerciseName == exercise.name
+        let key = exercise.name.normalizedExerciseKey
+        return allLogs.filter { log in
+            log.exerciseName.normalizedExerciseKey == key
                 && log.session !== session
                 && log.orderedSets.contains { $0.weight > 0 && $0.reps > 0 }
         }

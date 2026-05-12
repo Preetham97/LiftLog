@@ -12,9 +12,10 @@ struct ExerciseHistoryView: View {
     }
 
     private var sortedLogs: [LoggedExercise] {
-        allLogs
+        let key = exerciseName.normalizedExerciseKey
+        return allLogs
             .filter { log in
-                log.exerciseName == exerciseName
+                log.exerciseName.normalizedExerciseKey == key
                     && log.session?.date != nil
                     && log.orderedSets.contains { $0.weight > 0 && $0.reps > 0 }
             }

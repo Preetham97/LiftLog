@@ -22,8 +22,13 @@ struct StatsView: View {
     }
 
     private var summaries: [ExerciseSummary] {
-        let grouped = Dictionary(grouping: loggedExercises, by: \.exerciseName)
-        return grouped.compactMap { name, logs in
+        let grouped = Dictionary(grouping: loggedExercises, by: { $0.exerciseName.normalizedExerciseKey })
+        return grouped.compactMap { key, logs in
+            // Pick the most recent variant of the name as the display string.
+            let displayName = logs
+                .max { ($0.session?.date ?? .distantPast) < ($1.session?.date ?? .distantPast) }?
+                .exerciseName ?? key
+
             let dated = logs.compactMap { log -> (Date, Double)? in
                 guard let d = log.session?.date else { return nil }
                 let top = log.orderedSets.map(\.estimatedOneRepMax).max() ?? 0
@@ -34,8 +39,8 @@ struct StatsView: View {
             let prev = dated.dropLast().last?.1 ?? last.1
             let trend = last.1 - prev
             return ExerciseSummary(
-                id: name,
-                name: name,
+                id: key,
+                name: displayName,
                 latestE1RM: last.1,
                 sessionCount: dated.count,
                 trend: trend,
@@ -191,8 +196,9 @@ struct ExerciseProgressView: View {
     }
 
     private var logs: [LoggedExercise] {
-        allLogs.filter { log in
-            log.exerciseName == exerciseName
+        let key = exerciseName.normalizedExerciseKey
+        return allLogs.filter { log in
+            log.exerciseName.normalizedExerciseKey == key
                 && log.orderedSets.contains { $0.weight > 0 && $0.reps > 0 }
         }
     }
