@@ -90,6 +90,7 @@ struct TodaySessionView: View {
             .padding(.horizontal, 16)
             .padding(.top, 4)
         }
+        .scrollDismissesKeyboard(.interactively)
         .onChange(of: day.id) { _, _ in
             resetSessionForDayChange()
         }
@@ -106,6 +107,17 @@ struct TodaySessionView: View {
                     }
                     .foregroundStyle(Theme.accent)
                 }
+            }
+            ToolbarItemGroup(placement: .keyboard) {
+                Spacer()
+                Button("Done") {
+                    UIApplication.shared.sendAction(
+                        #selector(UIResponder.resignFirstResponder),
+                        to: nil, from: nil, for: nil
+                    )
+                }
+                .fontWeight(.semibold)
+                .foregroundStyle(Theme.accent)
             }
         }
         .confirmationDialog(
