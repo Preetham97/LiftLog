@@ -83,13 +83,9 @@ private struct StatSummaryCard: View {
                 Text(summary.name)
                     .font(.headline)
                     .foregroundStyle(.primary)
-                HStack(spacing: 6) {
-                    Text("\(summary.sessionCount) session\(summary.sessionCount == 1 ? "" : "s")")
-                    Text("•").foregroundStyle(.tertiary)
-                    Text(summary.lastSessionDate.formatted(.relative(presentation: .named)))
-                }
-                .font(.caption)
-                .foregroundStyle(.secondary)
+                Text(summary.lastSessionDate.formatted(.relative(presentation: .named)))
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 4) {
