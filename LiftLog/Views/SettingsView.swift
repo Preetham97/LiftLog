@@ -8,47 +8,37 @@ struct SettingsView: View {
             ZStack {
                 ScreenBackground()
                 ScrollView {
-                    VStack(spacing: 16) {
-                        VStack(alignment: .leading, spacing: 14) {
-                            Text("UNITS")
-                                .font(.caption2.bold())
-                                .tracking(0.8)
-                                .foregroundStyle(.secondary)
-                            HStack(spacing: 8) {
-                                ForEach(WeightUnit.allCases) { u in
-                                    Button {
-                                        unitPref.unit = u
-                                    } label: {
-                                        Text(u.label.uppercased())
-                                            .font(.subheadline.bold())
-                                            .frame(maxWidth: .infinity)
-                                            .padding(.vertical, 12)
-                                            .background(
-                                                unitPref.unit == u ? Theme.accent : Color(.tertiarySystemGroupedBackground)
-                                            )
-                                            .foregroundStyle(unitPref.unit == u ? .white : .primary)
-                                            .clipShape(RoundedRectangle(cornerRadius: Theme.pillCorner, style: .continuous))
-                                    }
+                    VStack(spacing: 14) {
+                        SettingsCard(title: "APPEARANCE") {
+                            SegmentedSelector(
+                                selection: Binding(
+                                    get: { unitPref.theme },
+                                    set: { unitPref.theme = $0 }
+                                ),
+                                options: AppTheme.allCases
+                            ) { theme in
+                                VStack(spacing: 4) {
+                                    Image(systemName: theme.icon)
+                                        .font(.subheadline)
+                                    Text(theme.label)
+                                        .font(.caption.weight(.semibold))
                                 }
                             }
                         }
-                        .card()
 
-                        VStack(alignment: .leading, spacing: 10) {
-                            Text("ABOUT")
-                                .font(.caption2.bold())
-                                .tracking(0.8)
-                                .foregroundStyle(.secondary)
-                            HStack {
-                                Text("LiftLog")
-                                    .font(.body.weight(.medium))
-                                Spacer()
-                                Text("v0.1.0")
-                                    .font(.callout.monospacedDigit())
-                                    .foregroundStyle(.secondary)
+                        SettingsCard(title: "WEIGHT UNITS") {
+                            SegmentedSelector(
+                                selection: Binding(
+                                    get: { unitPref.unit },
+                                    set: { unitPref.unit = $0 }
+                                ),
+                                options: WeightUnit.allCases
+                            ) { unit in
+                                Text(unit.label.uppercased())
+                                    .font(.subheadline.weight(.semibold))
+                                    .tracking(0.8)
                             }
                         }
-                        .card()
                     }
                     .padding(.horizontal, 16)
                     .padding(.top, 4)
@@ -57,4 +47,61 @@ struct SettingsView: View {
             .navigationTitle("Settings")
         }
     }
+}
+
+private struct SettingsCard<Content: View>: View {
+    let title: String
+    @ViewBuilder let content: () -> Content
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 12) {
+            Text(title)
+                .font(.caption2.bold())
+                .tracking(0.8)
+                .foregroundStyle(.secondary)
+            content()
+        }
+        .card()
+    }
+}
+
+private struct SegmentedSelector<Option: Hashable & Identifiable, Label: View>: View {
+    @Binding var selection: Option
+    let options: [Option]
+    @ViewBuilder let label: (Option) -> Label
+
+    var body: some View {
+        HStack(spacing: 0) {
+            ForEach(options) { option in
+                let isSelected = selection == option
+                Button {
+                    withAnimation(.spring(response: 0.28, dampingFraction: 0.85)) {
+                        selection = option
+                    }
+                } label: {
+                    label(option)
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 12)
+                        .foregroundStyle(isSelected ? .white : .primary)
+                        .background(
+                            ZStack {
+                                if isSelected {
+                                    RoundedRectangle(cornerRadius: 10, style: .continuous)
+                                        .fill(Theme.accent)
+                                        .matchedGeometryEffect(id: "selectorPill", in: namespace)
+                                }
+                            }
+                        )
+                }
+                .buttonStyle(.plain)
+            }
+        }
+        .padding(4)
+        .background(
+            RoundedRectangle(cornerRadius: 12, style: .continuous)
+                .fill(Color(.tertiarySystemGroupedBackground))
+        )
+    }
+
+    @Namespace private var namespace
 }

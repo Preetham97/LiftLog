@@ -20,5 +20,6 @@ struct RootView: View {
         }
         .tint(Theme.accent)
         .environmentObject(unitPref)
+        .preferredColorScheme(unitPref.theme.colorScheme)
     }
 }
