@@ -1,0 +1,31 @@
+# Xcode
+build/
+DerivedData/
+*.xcuserstate
+*.xcuserdatad
+xcuserdata/
+*.xcscmblueprint
+*.xccheckout
+
+# Swift Package Manager
+.swiftpm/
+.build/
+Packages/
+Package.pins
+Package.resolved
+*.xcodeproj/*.xcworkspace
+*.xcworkspace/xcuserdata/
+
+# Generated project (we keep project.yml as source of truth, but commit xcodeproj for now)
+# LiftLog.xcodeproj/
+
+# macOS
+.DS_Store
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Logs
+*.log
