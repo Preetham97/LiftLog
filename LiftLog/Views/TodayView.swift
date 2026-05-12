@@ -144,48 +144,34 @@ private struct HeroHeader: View {
     let totalSets: Int
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 12) {
-            HStack(spacing: 8) {
-                PillLabel(text: routine.name.uppercased())
-                Spacer()
-                Text(Date.now.formatted(date: .complete, time: .omitted))
-                    .font(.caption)
-                    .foregroundStyle(.white.opacity(0.85))
-            }
-            Text(day.name)
-                .font(.system(size: 34, weight: .bold, design: .rounded))
-                .foregroundStyle(.white)
-            HStack(spacing: 16) {
-                StatChip(value: "\(day.exercises.count)", label: "EXERCISES")
-                StatChip(value: "\(totalSets)", label: "SETS LOGGED")
-            }
-        }
-        .padding(20)
-        .frame(maxWidth: .infinity, alignment: .leading)
-        .background(
-            LinearGradient(
-                colors: [Theme.accent, Theme.accent.opacity(0.75)],
-                startPoint: .topLeading,
-                endPoint: .bottomTrailing
-            )
-        )
-        .clipShape(RoundedRectangle(cornerRadius: Theme.cardCorner, style: .continuous))
-    }
-}
+        VStack(alignment: .leading, spacing: 6) {
+            Text(routine.name.uppercased())
+                .font(.caption.bold())
+                .tracking(1.2)
+                .foregroundStyle(Theme.accent)
 
-private struct StatChip: View {
-    let value: String
-    let label: String
-    var body: some View {
-        VStack(alignment: .leading, spacing: 2) {
-            Text(value)
-                .font(.title3.bold())
-                .foregroundStyle(.white)
-            Text(label)
-                .font(.caption2.bold())
-                .tracking(0.6)
-                .foregroundStyle(.white.opacity(0.75))
+            Text(day.name)
+                .font(.system(size: 32, weight: .bold, design: .rounded))
+                .foregroundStyle(.primary)
+
+            HStack(spacing: 6) {
+                Text(Date.now.formatted(date: .abbreviated, time: .omitted))
+                Text("•").foregroundStyle(.tertiary)
+                Text("\(day.exercises.count) lift\(day.exercises.count == 1 ? "" : "s")")
+                if totalSets > 0 {
+                    Text("•").foregroundStyle(.tertiary)
+                    Text("\(totalSets) set\(totalSets == 1 ? "" : "s") logged")
+                        .foregroundStyle(Theme.accent)
+                        .fontWeight(.semibold)
+                }
+            }
+            .font(.subheadline)
+            .foregroundStyle(.secondary)
         }
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .padding(.horizontal, 4)
+        .padding(.top, 4)
+        .padding(.bottom, 8)
     }
 }
 
