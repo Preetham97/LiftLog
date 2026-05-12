@@ -19,6 +19,7 @@ struct StatsView: View {
         let sessionCount: Int
         let trend: Double
         let lastSessionDate: Date
+        let lastActivityAt: Date
     }
 
     private var summaries: [ExerciseSummary] {
@@ -38,25 +39,35 @@ struct StatsView: View {
             guard let last = dated.last else { return nil }
             let prev = dated.dropLast().last?.1 ?? last.1
             let trend = last.1 - prev
+
+            // The most recent set across all of this exercise's logs.
+            // Falls back to the session date so ties never reach the sort.
+            let latestSetAt = logs
+                .flatMap { $0.orderedSets }
+                .filter { $0.weight > 0 && $0.reps > 0 }
+                .map(\.completedAt)
+                .max() ?? last.0
+
             return ExerciseSummary(
                 id: key,
                 name: displayName,
                 latestE1RM: last.1,
                 sessionCount: dated.count,
                 trend: trend,
-                lastSessionDate: last.0
+                lastSessionDate: last.0,
+                lastActivityAt: latestSetAt
             )
-        }.sorted { $0.lastSessionDate > $1.lastSessionDate }
+        }.sorted { $0.lastActivityAt > $1.lastActivityAt }
     }
 
     private var activeSummaries: [ExerciseSummary] {
         let cutoff = Calendar.current.date(byAdding: .day, value: -14, to: .now) ?? .distantPast
-        return summaries.filter { $0.lastSessionDate >= cutoff }
+        return summaries.filter { $0.lastActivityAt >= cutoff }
     }
 
     private var olderSummaries: [ExerciseSummary] {
         let cutoff = Calendar.current.date(byAdding: .day, value: -14, to: .now) ?? .distantPast
-        return summaries.filter { $0.lastSessionDate < cutoff }
+        return summaries.filter { $0.lastActivityAt < cutoff }
     }
 
     private var sessionsThisMonth: Int {
