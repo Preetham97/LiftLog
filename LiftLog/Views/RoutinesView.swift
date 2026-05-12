@@ -23,6 +23,20 @@ struct RoutinesView: View {
                                     RoutineCard(routine: routine, onMakeActive: { makeActive(routine) })
                                 }
                                 .buttonStyle(.plain)
+                                .contextMenu {
+                                    if !routine.isActive {
+                                        Button {
+                                            makeActive(routine)
+                                        } label: {
+                                            Label("Set as active", systemImage: "star")
+                                        }
+                                    }
+                                    Button(role: .destructive) {
+                                        delete(routine)
+                                    } label: {
+                                        Label("Delete routine", systemImage: "trash")
+                                    }
+                                }
                             }
                         }
                         .padding(.horizontal, 16)
@@ -99,6 +113,20 @@ struct RoutinesView: View {
     private func makeActive(_ routine: Routine) {
         for r in routines { r.isActive = (r.id == routine.id) }
         try? context.save()
+    }
+
+    private func delete(_ routine: Routine) {
+        let wasActive = routine.isActive
+        context.delete(routine)
+        do {
+            try context.save()
+        } catch {
+            print("[LiftLog] delete routine failed: \(error)")
+        }
+        if wasActive, let fallback = routines.first {
+            fallback.isActive = true
+            try? context.save()
+        }
     }
 }
 
@@ -205,12 +233,14 @@ private struct MetricItem: View {
 
 struct RoutineDetailView: View {
     @Environment(\.modelContext) private var context
+    @Environment(\.dismiss) private var dismiss
     @Bindable var routine: Routine
     @Query private var allRoutines: [Routine]
     @Query private var allExercises: [Exercise]
     @Query private var allLogs: [LoggedExercise]
 
     @State private var expandedDayID: PersistentIdentifier?
+    @State private var showingDeleteConfirm = false
 
     private var knownExerciseNames: [String] {
         var bestByKey: [String: String] = [:]
@@ -292,9 +322,42 @@ struct RoutineDetailView: View {
             } footer: {
                 Text("Tap a day to expand and edit its exercises. Swipe right to set as next, left to delete.")
             }
+
+            Section {
+                Button(role: .destructive) {
+                    showingDeleteConfirm = true
+                } label: {
+                    Label("Delete routine", systemImage: "trash")
+                }
+            }
         }
         .navigationTitle(routine.name.isEmpty ? "Routine" : routine.name)
         .navigationBarTitleDisplayMode(.inline)
+        .confirmationDialog(
+            "Delete \(routine.name.isEmpty ? "this routine" : routine.name)?",
+            isPresented: $showingDeleteConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Delete routine", role: .destructive) {
+                deleteRoutine()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Your logged sessions and history won't be touched — only this routine's days and exercise list go away.")
+        }
+    }
+
+    private func deleteRoutine() {
+        let wasActive = routine.isActive
+        context.delete(routine)
+        do { try context.save() } catch {
+            print("[LiftLog] delete routine failed: \(error)")
+        }
+        if wasActive, let fallback = allRoutines.first {
+            fallback.isActive = true
+            try? context.save()
+        }
+        dismiss()
     }
 
     private func addDay() {
