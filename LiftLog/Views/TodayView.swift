@@ -90,6 +90,9 @@ struct TodaySessionView: View {
             .padding(.horizontal, 16)
             .padding(.top, 4)
         }
+        .onChange(of: day.id) { _, _ in
+            resetSessionForDayChange()
+        }
         .toolbar {
             ToolbarItem(placement: .primaryAction) {
                 Button {
@@ -120,6 +123,21 @@ struct TodaySessionView: View {
         } message: {
             Text("Your sets are already saved. This only moves the routine cycle forward — you can adjust the next day later in the Routines tab.")
         }
+    }
+
+    private func resetSessionForDayChange() {
+        if let s = session {
+            let hasRealWork = s.loggedExercises.contains { log in
+                log.sets.contains { $0.weight > 0 && $0.reps > 0 }
+            }
+            if !hasRealWork {
+                context.delete(s)
+                do { try context.save() } catch {
+                    print("[LiftLog] resetSession cleanup failed: \(error)")
+                }
+            }
+        }
+        session = nil
     }
 
     private func finishSession(advance: Bool) {
