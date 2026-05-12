@@ -3,10 +3,10 @@ import SwiftData
 
 @Model
 final class Routine {
-    var name: String
-    var createdAt: Date
-    var currentDayIndex: Int
-    var isActive: Bool
+    var name: String = ""
+    var createdAt: Date = Date.now
+    var currentDayIndex: Int = 0
+    var isActive: Bool = false
     @Relationship(deleteRule: .cascade, inverse: \RoutineDay.routine)
     var days: [RoutineDay] = []
 
@@ -37,8 +37,8 @@ final class Routine {
 
 @Model
 final class RoutineDay {
-    var name: String
-    var order: Int
+    var name: String = ""
+    var order: Int = 0
     var routine: Routine?
     @Relationship(deleteRule: .cascade, inverse: \Exercise.day)
     var exercises: [Exercise] = []
@@ -55,10 +55,10 @@ final class RoutineDay {
 
 @Model
 final class Exercise {
-    var name: String
-    var muscleGroup: String
-    var order: Int
-    var notes: String
+    var name: String = ""
+    var muscleGroup: String = ""
+    var order: Int = 0
+    var notes: String = ""
     var day: RoutineDay?
 
     init(name: String, muscleGroup: String = "", order: Int = 0, notes: String = "") {
@@ -71,9 +71,9 @@ final class Exercise {
 
 @Model
 final class WorkoutSession {
-    var date: Date
-    var dayName: String
-    var routineName: String
+    var date: Date = Date.now
+    var dayName: String = ""
+    var routineName: String = ""
     @Relationship(deleteRule: .cascade, inverse: \LoggedExercise.session)
     var loggedExercises: [LoggedExercise] = []
 
@@ -86,8 +86,8 @@ final class WorkoutSession {
 
 @Model
 final class LoggedExercise {
-    var exerciseName: String
-    var order: Int
+    var exerciseName: String = ""
+    var order: Int = 0
     var session: WorkoutSession?
     @Relationship(deleteRule: .cascade, inverse: \SetEntry.loggedExercise)
     var sets: [SetEntry] = []
@@ -104,11 +104,11 @@ final class LoggedExercise {
 
 @Model
 final class SetEntry {
-    var order: Int
-    var weight: Double
-    var reps: Int
+    var order: Int = 0
+    var weight: Double = 0
+    var reps: Int = 0
     var rpe: Double?
-    var completedAt: Date
+    var completedAt: Date = Date.now
     var loggedExercise: LoggedExercise?
 
     init(order: Int, weight: Double, reps: Int, rpe: Double? = nil, completedAt: Date = .now) {

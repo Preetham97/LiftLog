@@ -132,6 +132,12 @@ private struct NewRoutineSheet: View {
 
     @State private var name = ""
     @State private var dayNames: [String] = ["Push", "Pull", "Legs"]
+    @State private var errorMessage: String?
+
+    private var canCreate: Bool {
+        !name.trimmingCharacters(in: .whitespaces).isEmpty
+            && dayNames.contains { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+    }
 
     var body: some View {
         NavigationStack {
@@ -162,23 +168,43 @@ private struct NewRoutineSheet: View {
                 ToolbarItem(placement: .confirmationAction) {
                     Button("Create") { create() }
                         .fontWeight(.semibold)
-                        .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || dayNames.isEmpty)
+                        .disabled(!canCreate)
                 }
+            }
+            .alert("Couldn't save routine", isPresented: Binding(
+                get: { errorMessage != nil },
+                set: { if !$0 { errorMessage = nil } }
+            )) {
+                Button("OK", role: .cancel) {}
+            } message: {
+                Text(errorMessage ?? "")
             }
         }
     }
 
     private func create() {
+        let trimmedName = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmedName.isEmpty else { return }
+
         let shouldBeActive = !existingRoutines.contains(where: \.isActive)
-        let routine = Routine(name: name.trimmingCharacters(in: .whitespaces), isActive: shouldBeActive)
+        let routine = Routine(name: trimmedName, isActive: shouldBeActive)
         context.insert(routine)
-        for (i, dn) in dayNames.enumerated() where !dn.trimmingCharacters(in: .whitespaces).isEmpty {
-            let day = RoutineDay(name: dn, order: i)
-            day.routine = routine
+
+        for (i, dn) in dayNames.enumerated() {
+            let trimmed = dn.trimmingCharacters(in: .whitespaces)
+            guard !trimmed.isEmpty else { continue }
+            let day = RoutineDay(name: trimmed, order: i)
             context.insert(day)
+            routine.days.append(day)
         }
-        try? context.save()
-        dismiss()
+
+        do {
+            try context.save()
+            dismiss()
+        } catch {
+            errorMessage = "\(error)"
+            print("[LiftLog] Failed to save routine: \(error)")
+        }
     }
 }
 
