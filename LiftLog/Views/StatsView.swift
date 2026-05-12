@@ -215,7 +215,7 @@ private struct EmptyStatsState: View {
         VStack(spacing: 18) {
             Image(systemName: "chart.line.uptrend.xyaxis")
                 .font(.system(size: 52, weight: .light))
-                .foregroundStyle(Theme.accent)
+                .foregroundStyle(.secondary)
             Text("No data yet")
                 .font(.title2.bold())
             Text("Log some sets and your progress charts will appear here.")

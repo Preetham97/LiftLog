@@ -38,7 +38,7 @@ private struct EmptyTodayState: View {
         VStack(spacing: 20) {
             Image(systemName: "dumbbell.fill")
                 .font(.system(size: 56, weight: .light))
-                .foregroundStyle(Theme.accent)
+                .foregroundStyle(.secondary)
                 .padding(.bottom, 4)
             Text("Ready to lift?")
                 .font(.title2.bold())
@@ -183,7 +183,7 @@ private struct HeroHeader: View {
             Text(routine.name.uppercased())
                 .font(.caption.bold())
                 .tracking(1.2)
-                .foregroundStyle(Theme.accent)
+                .foregroundStyle(.secondary)
 
             Text(day.name)
                 .font(.system(size: 32, weight: .bold, design: .rounded))
@@ -196,7 +196,6 @@ private struct HeroHeader: View {
                 if totalSets > 0 {
                     Text("•").foregroundStyle(.tertiary)
                     Text("\(totalSets) set\(totalSets == 1 ? "" : "s") logged")
-                        .foregroundStyle(Theme.accent)
                         .fontWeight(.semibold)
                 }
             }

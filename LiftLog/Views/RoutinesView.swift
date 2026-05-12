@@ -138,7 +138,7 @@ private struct EmptyRoutinesState: View {
         VStack(spacing: 16) {
             Image(systemName: "list.bullet.rectangle.fill")
                 .font(.system(size: 48, weight: .light))
-                .foregroundStyle(Theme.accent)
+                .foregroundStyle(.secondary)
             Text("No routines yet")
                 .font(.title2.bold())
             Text("Start with a 5-day split or build your own from scratch.")
@@ -274,7 +274,6 @@ struct RoutineDetailView: View {
                         try? context.save()
                     } label: {
                         Label("Set as active", systemImage: "star")
-                            .foregroundStyle(Theme.accent)
                     }
                 }
             } header: {
@@ -315,7 +314,6 @@ struct RoutineDetailView: View {
 
                 Button(action: addDay) {
                     Label("Add day", systemImage: "plus")
-                        .foregroundStyle(Theme.accent)
                 }
             } header: {
                 Text("Cycle")
@@ -420,7 +418,7 @@ private struct DayDisclosure: View {
                         .onSubmit(addExercise)
                     Button(action: addExercise) {
                         Image(systemName: "plus.circle.fill")
-                            .foregroundStyle(canAdd ? Theme.accent : .secondary)
+                            .foregroundStyle(canAdd ? .primary : .secondary)
                     }
                     .buttonStyle(.plain)
                     .disabled(!canAdd)
@@ -525,7 +523,7 @@ private struct InlineExerciseRow: View {
         HStack(spacing: 10) {
             Image(systemName: "dumbbell.fill")
                 .font(.caption)
-                .foregroundStyle(Theme.accent)
+                .foregroundStyle(.secondary)
             TextField("Exercise name", text: $exercise.name)
                 .textFieldStyle(.plain)
             Button(role: .destructive, action: onDelete) {
