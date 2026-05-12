@@ -293,13 +293,8 @@ private struct ExerciseLogCard: View {
     }
 
     private func addSet(to log: LoggedExercise) {
-        let lastSet = log.orderedSets.last
-        let order = (lastSet?.order ?? -1) + 1
-        let entry = SetEntry(
-            order: order,
-            weight: lastSet?.weight ?? previousSession?.orderedSets.last?.weight ?? 0,
-            reps: lastSet?.reps ?? previousSession?.orderedSets.last?.reps ?? 0
-        )
+        let order = (log.orderedSets.last?.order ?? -1) + 1
+        let entry = SetEntry(order: order, weight: 0, reps: 0)
         entry.loggedExercise = log
         context.insert(entry)
     }
