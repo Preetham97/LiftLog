@@ -272,11 +272,12 @@ private struct ExerciseLogCard: View {
             if let log = currentLog {
                 VStack(spacing: 6) {
                     ForEach(log.orderedSets) { entry in
-                        SetRowView(
-                            entry: entry,
-                            onToggleDone: { handleToggleDone(entry, in: log) },
-                            onDelete: { delete(entry, from: log) }
-                        )
+                        SwipeableRow(onDelete: { delete(entry, from: log) }) {
+                            SetRowView(
+                                entry: entry,
+                                onToggleDone: { handleToggleDone(entry, in: log) }
+                            )
+                        }
                     }
                 }
 
@@ -414,10 +415,6 @@ private struct ExerciseLogCard: View {
         entry.isCompleted.toggle()
         if entry.isCompleted {
             entry.completedAt = .now
-            let isLast = log.orderedSets.last?.id == entry.id
-            if isLast {
-                addSet(to: log)
-            }
         }
         save("toggleDone")
     }
@@ -471,7 +468,6 @@ private struct SetRowView: View {
     @EnvironmentObject private var unitPref: UnitPreference
     @Bindable var entry: SetEntry
     let onToggleDone: () -> Void
-    let onDelete: () -> Void
 
     private var canMarkDone: Bool {
         entry.weight > 0 && entry.reps > 0
@@ -513,10 +509,69 @@ private struct SetRowView: View {
             RoundedRectangle(cornerRadius: 10, style: .continuous)
                 .fill(entry.isCompleted ? Theme.accentSoft : Color.clear)
         )
-        .contextMenu {
-            Button(role: .destructive, action: onDelete) {
-                Label("Delete set", systemImage: "trash")
+    }
+}
+
+private struct SwipeableRow<Content: View>: View {
+    let onDelete: () -> Void
+    @ViewBuilder let content: () -> Content
+
+    @State private var offset: CGFloat = 0
+    @State private var armed: Bool = false
+
+    private let actionWidth: CGFloat = 72
+    private let triggerThreshold: CGFloat = 90
+
+    var body: some View {
+        ZStack(alignment: .trailing) {
+            // Delete background — visible only when swiped open.
+            Button(action: commitDelete) {
+                Image(systemName: "trash.fill")
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .frame(width: actionWidth, height: 40)
+                    .background(Color.red)
+                    .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
             }
+            .buttonStyle(.plain)
+            .opacity(offset < -8 ? 1 : 0)
+
+            content()
+                .offset(x: offset)
+                .gesture(
+                    DragGesture(minimumDistance: 25)
+                        .onChanged { value in
+                            // Only react to clear horizontal swipes.
+                            guard abs(value.translation.width) > abs(value.translation.height) else { return }
+                            if value.translation.width < 0 {
+                                offset = max(-actionWidth - 20, value.translation.width)
+                            } else if armed {
+                                offset = min(0, -actionWidth + value.translation.width)
+                            }
+                        }
+                        .onEnded { value in
+                            withAnimation(.spring(response: 0.32, dampingFraction: 0.85)) {
+                                if value.translation.width < -triggerThreshold {
+                                    commitDelete()
+                                } else if value.translation.width < -actionWidth/2 {
+                                    offset = -actionWidth - 4
+                                    armed = true
+                                } else {
+                                    offset = 0
+                                    armed = false
+                                }
+                            }
+                        }
+                )
+        }
+    }
+
+    private func commitDelete() {
+        withAnimation(.easeInOut(duration: 0.22)) {
+            offset = -600
+        }
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.22) {
+            onDelete()
         }
     }
 }
