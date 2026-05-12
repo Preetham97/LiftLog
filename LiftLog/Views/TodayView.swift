@@ -193,7 +193,7 @@ private struct ExerciseLogCard: View {
         self.day = day
         let name = exercise.name
         self._previousLogs = Query(
-            filter: #Predicate<LoggedExercise> { $0.exerciseName == name },
+            filter: #Predicate<LoggedExercise> { $0.exerciseName == name && $0.isCompleted },
             sort: [SortDescriptor(\LoggedExercise.order)]
         )
     }

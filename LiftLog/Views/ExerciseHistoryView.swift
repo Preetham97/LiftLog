@@ -11,7 +11,7 @@ struct ExerciseHistoryView: View {
         self.exerciseName = exerciseName
         let name = exerciseName
         self._logs = Query(
-            filter: #Predicate<LoggedExercise> { $0.exerciseName == name }
+            filter: #Predicate<LoggedExercise> { $0.exerciseName == name && $0.isCompleted }
         )
     }
 
