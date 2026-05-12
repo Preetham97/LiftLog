@@ -12,6 +12,10 @@ struct HistoryView: View {
                 ScreenBackground()
                 ScrollView {
                     VStack(spacing: 14) {
+                        MonthStats(
+                            displayedMonth: monthAnchor,
+                            sessions: loggedSessions
+                        )
                         MonthSwitcher(anchor: $monthAnchor)
                         CalendarGrid(
                             month: monthAnchor,
@@ -31,9 +35,110 @@ struct HistoryView: View {
         }
     }
 
+    private var loggedSessions: [WorkoutSession] {
+        sessions.filter { s in
+            s.loggedExercises.contains { log in
+                log.sets.contains { $0.weight > 0 && $0.reps > 0 }
+            }
+        }
+    }
+
     private var sessionDays: Set<Date> {
         let cal = Calendar.current
-        return Set(sessions.map { cal.startOfDay(for: $0.date) })
+        return Set(loggedSessions.map { cal.startOfDay(for: $0.date) })
+    }
+}
+
+// MARK: - Month stats strip
+
+private struct MonthStats: View {
+    let displayedMonth: Date
+    let sessions: [WorkoutSession]
+
+    private var sessionsThisMonth: Int {
+        let cal = Calendar.current
+        return sessions.filter {
+            cal.isDate($0.date, equalTo: displayedMonth, toGranularity: .month)
+        }.count
+    }
+
+    private var sessionsLastMonth: Int {
+        let cal = Calendar.current
+        guard let prev = cal.date(byAdding: .month, value: -1, to: displayedMonth) else { return 0 }
+        return sessions.filter { cal.isDate($0.date, equalTo: prev, toGranularity: .month) }.count
+    }
+
+    private var activeDaysThisMonth: Int {
+        let cal = Calendar.current
+        let dates = sessions
+            .filter { cal.isDate($0.date, equalTo: displayedMonth, toGranularity: .month) }
+            .map { cal.startOfDay(for: $0.date) }
+        return Set(dates).count
+    }
+
+    private var delta: Int { sessionsThisMonth - sessionsLastMonth }
+
+    private var deltaColor: Color {
+        if delta > 0 { return .green }
+        if delta < 0 { return .red }
+        return .secondary
+    }
+
+    private var deltaIcon: String {
+        if delta > 0 { return "arrow.up.right" }
+        if delta < 0 { return "arrow.down.right" }
+        return "equal"
+    }
+
+    var body: some View {
+        HStack(spacing: 10) {
+            StatTile(
+                value: "\(sessionsThisMonth)",
+                label: "SESSIONS",
+                trailing: AnyView(deltaBadge)
+            )
+            StatTile(
+                value: "\(activeDaysThisMonth)",
+                label: "ACTIVE DAYS",
+                trailing: AnyView(EmptyView())
+            )
+        }
+    }
+
+    private var deltaBadge: some View {
+        HStack(spacing: 2) {
+            Image(systemName: deltaIcon)
+                .font(.caption2.bold())
+            Text("\(abs(delta))")
+                .font(.caption2.bold().monospacedDigit())
+        }
+        .foregroundStyle(deltaColor)
+        .padding(.horizontal, 6)
+        .padding(.vertical, 3)
+        .background(deltaColor.opacity(0.14))
+        .clipShape(Capsule())
+    }
+}
+
+private struct StatTile: View {
+    let value: String
+    let label: String
+    let trailing: AnyView
+
+    var body: some View {
+        HStack(alignment: .center) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(value)
+                    .font(.title2.bold().monospacedDigit())
+                Text(label)
+                    .font(.caption2.bold())
+                    .tracking(0.6)
+                    .foregroundStyle(.secondary)
+            }
+            Spacer()
+            trailing
+        }
+        .card(padding: 14)
     }
 }
 
