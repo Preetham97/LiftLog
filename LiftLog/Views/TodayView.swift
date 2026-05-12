@@ -313,7 +313,7 @@ private struct ExerciseLogCard: View {
         let topSet = useful.max { $0.weight < $1.weight }
         return Button {
             log.isCompleted = false
-            try? context.save()
+            save("reopenExercise")
         } label: {
             HStack(spacing: 12) {
                 Image(systemName: "checkmark.seal.fill")
@@ -357,37 +357,38 @@ private struct ExerciseLogCard: View {
             return new
         }()
         let log = LoggedExercise(exerciseName: exercise.name, order: exercise.order)
-        log.session = s
         context.insert(log)
+        log.session = s
+        s.loggedExercises.append(log)
         addSet(to: log)
+        save("startLogging")
     }
 
     private func addSet(to log: LoggedExercise) {
         let order = (log.orderedSets.last?.order ?? -1) + 1
         let entry = SetEntry(order: order, weight: 0, reps: 0)
-        entry.loggedExercise = log
         context.insert(entry)
+        entry.loggedExercise = log
+        log.sets.append(entry)
+        save("addSet")
     }
 
     private func delete(_ entry: SetEntry, from log: LoggedExercise) {
         context.delete(entry)
-        try? context.save()
+        save("deleteSet")
     }
 
     private func finishExercise(_ log: LoggedExercise) {
-        // Drop the trailing empty placeholder set if the user left one behind.
         if let last = log.orderedSets.last,
            last.weight == 0, last.reps == 0, !last.isCompleted {
             context.delete(last)
         }
-        // Auto-mark any still-pending non-empty sets as completed so e1RM
-        // and volume calculations include them.
         for s in log.orderedSets where !s.isCompleted && s.weight > 0 && s.reps > 0 {
             s.isCompleted = true
             s.completedAt = .now
         }
         log.isCompleted = true
-        try? context.save()
+        save("finishExercise")
     }
 
     private func handleToggleDone(_ entry: SetEntry, in log: LoggedExercise) {
@@ -399,7 +400,15 @@ private struct ExerciseLogCard: View {
                 addSet(to: log)
             }
         }
-        try? context.save()
+        save("toggleDone")
+    }
+
+    private func save(_ source: String) {
+        do {
+            try context.save()
+        } catch {
+            print("[LiftLog] save failed in \(source): \(error)")
+        }
     }
 }
 
