@@ -82,12 +82,13 @@ private struct SegmentedSelector<Option: Hashable & Identifiable, Label: View>: 
                     label(option)
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 12)
-                        .foregroundStyle(isSelected ? .white : .primary)
+                        .foregroundStyle(isSelected ? Color.primary : Color.secondary)
                         .background(
                             ZStack {
                                 if isSelected {
                                     RoundedRectangle(cornerRadius: 10, style: .continuous)
-                                        .fill(Theme.accent)
+                                        .fill(Color(.systemBackground))
+                                        .shadow(color: .black.opacity(0.06), radius: 2, y: 1)
                                         .matchedGeometryEffect(id: "selectorPill", in: namespace)
                                 }
                             }

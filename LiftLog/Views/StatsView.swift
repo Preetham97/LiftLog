@@ -389,12 +389,13 @@ private struct RangePicker: View {
                         .font(.caption.weight(.semibold))
                         .frame(maxWidth: .infinity)
                         .padding(.vertical, 8)
-                        .foregroundStyle(isSelected ? .white : .primary)
+                        .foregroundStyle(isSelected ? Color.primary : Color.secondary)
                         .background(
                             ZStack {
                                 if isSelected {
                                     RoundedRectangle(cornerRadius: 8, style: .continuous)
-                                        .fill(Theme.accent)
+                                        .fill(Color(.systemBackground))
+                                        .shadow(color: .black.opacity(0.06), radius: 2, y: 1)
                                 }
                             }
                         )

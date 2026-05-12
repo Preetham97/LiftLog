@@ -105,7 +105,7 @@ struct TodaySessionView: View {
                         Image(systemName: "arrow.right")
                             .font(.caption.bold())
                     }
-                    .foregroundStyle(Theme.accent)
+                    .foregroundStyle(.primary)
                 }
             }
             ToolbarItemGroup(placement: .keyboard) {
@@ -117,7 +117,7 @@ struct TodaySessionView: View {
                     )
                 }
                 .fontWeight(.semibold)
-                .foregroundStyle(Theme.accent)
+                .foregroundStyle(.primary)
             }
         }
         .confirmationDialog(
