@@ -21,6 +21,7 @@ struct StatsView: View {
         let trend: Double
         let lastSessionDate: Date
         let lastActivityAt: Date
+        let points: [SessionPoint]
     }
 
     private var summaries: [ExerciseSummary] {
@@ -49,6 +50,8 @@ struct StatsView: View {
                 .map(\.completedAt)
                 .max() ?? last.0
 
+            let points = dated.map { SessionPoint(date: $0.0, topE1RM: $0.1, totalVolume: 0) }
+
             return ExerciseSummary(
                 id: key,
                 name: displayName,
@@ -56,19 +59,31 @@ struct StatsView: View {
                 sessionCount: dated.count,
                 trend: trend,
                 lastSessionDate: last.0,
-                lastActivityAt: latestSetAt
+                lastActivityAt: latestSetAt,
+                points: points
             )
         }.sorted { $0.lastActivityAt > $1.lastActivityAt }
     }
 
-    private var activeSummaries: [ExerciseSummary] {
-        let cutoff = Calendar.current.date(byAdding: .day, value: -14, to: .now) ?? .distantPast
-        return summaries.filter { $0.lastActivityAt >= cutoff }
+    private var latestSessionExerciseKeys: Set<String> {
+        let latestSession = allLoggedExercises
+            .compactMap { $0.session }
+            .filter { $0.isCompleted }
+            .max { $0.date < $1.date }
+        guard let s = latestSession else { return [] }
+        return Set(
+            s.loggedExercises
+                .filter { $0.orderedSets.contains { $0.weight > 0 && $0.reps > 0 } }
+                .map { $0.exerciseName.normalizedExerciseKey }
+        )
     }
 
-    private var olderSummaries: [ExerciseSummary] {
-        let cutoff = Calendar.current.date(byAdding: .day, value: -14, to: .now) ?? .distantPast
-        return summaries.filter { $0.lastActivityAt < cutoff }
+    private var featuredSummaries: [ExerciseSummary] {
+        summaries.filter { latestSessionExerciseKeys.contains($0.id) }
+    }
+
+    private var otherSummaries: [ExerciseSummary] {
+        summaries.filter { !latestSessionExerciseKeys.contains($0.id) }
     }
 
     private var sessionsThisMonth: Int {
@@ -82,53 +97,58 @@ struct StatsView: View {
 
     var body: some View {
         NavigationStack {
-            Group {
+            ZStack {
+                ScreenBackground()
                 if summaries.isEmpty {
-                    ZStack {
-                        ScreenBackground()
-                        EmptyStatsState()
-                    }
+                    EmptyStatsState()
                 } else {
-                    List {
-                        Section {
+                    ScrollView {
+                        VStack(spacing: 14) {
                             HStack(spacing: 18) {
                                 OverviewMetric(value: "\(summaries.count)", label: "EXERCISES")
                                 Divider().frame(height: 28)
                                 OverviewMetric(value: "\(sessionsThisMonth)", label: "DAYS THIS MONTH")
                                 Spacer()
                             }
-                            .listRowInsets(EdgeInsets(top: 12, leading: 16, bottom: 12, trailing: 16))
-                        }
+                            .padding(.horizontal, 4)
+                            .padding(.top, 4)
 
-                        if !activeSummaries.isEmpty {
-                            Section {
-                                ForEach(activeSummaries) { summary in
+                            if !featuredSummaries.isEmpty {
+                                SectionHeader(title: "From your latest session")
+                                ForEach(featuredSummaries) { summary in
                                     NavigationLink {
                                         ExerciseProgressView(exerciseName: summary.name)
                                     } label: {
-                                        ExerciseStatRow(summary: summary, unit: unitPref.unit)
+                                        ExerciseChartCard(summary: summary, unit: unitPref.unit)
                                     }
+                                    .buttonStyle(.plain)
                                 }
-                            } header: {
-                                Text("Active · last 2 weeks")
                             }
-                        }
 
-                        if !olderSummaries.isEmpty {
-                            Section {
-                                ForEach(olderSummaries) { summary in
-                                    NavigationLink {
-                                        ExerciseProgressView(exerciseName: summary.name)
-                                    } label: {
-                                        ExerciseStatRow(summary: summary, unit: unitPref.unit)
+                            if !otherSummaries.isEmpty {
+                                SectionHeader(title: "Other exercises")
+                                VStack(spacing: 0) {
+                                    ForEach(Array(otherSummaries.enumerated()), id: \.element.id) { idx, summary in
+                                        NavigationLink {
+                                            ExerciseProgressView(exerciseName: summary.name)
+                                        } label: {
+                                            ExerciseStatRow(summary: summary, unit: unitPref.unit)
+                                        }
+                                        .buttonStyle(.plain)
+                                        if idx < otherSummaries.count - 1 {
+                                            Divider().padding(.leading, 16)
+                                        }
                                     }
                                 }
-                            } header: {
-                                Text("Older")
+                                .background(
+                                    RoundedRectangle(cornerRadius: Theme.cardCorner, style: .continuous)
+                                        .fill(Color(.secondarySystemGroupedBackground))
+                                )
                             }
                         }
+                        .padding(.horizontal, 16)
+                        .padding(.bottom, 24)
                     }
-                    .listStyle(.insetGrouped)
                 }
             }
             .navigationTitle("Stats")
@@ -149,6 +169,87 @@ private struct OverviewMetric: View {
                 .tracking(0.6)
                 .foregroundStyle(.secondary)
         }
+    }
+}
+
+private struct SectionHeader: View {
+    let title: String
+
+    var body: some View {
+        Text(title.uppercased())
+            .font(.caption2.bold())
+            .tracking(0.8)
+            .foregroundStyle(.secondary)
+            .frame(maxWidth: .infinity, alignment: .leading)
+            .padding(.horizontal, 4)
+            .padding(.top, 6)
+    }
+}
+
+private struct ExerciseChartCard: View {
+    let summary: StatsView.ExerciseSummary
+    let unit: WeightUnit
+
+    private var trendColor: Color {
+        if summary.trend > 0.5 { return .green }
+        if summary.trend < -0.5 { return .red }
+        return .secondary
+    }
+
+    var body: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 2) {
+                    Text(summary.name)
+                        .font(.headline)
+                        .foregroundStyle(.primary)
+                    Text(summary.lastSessionDate.formatted(.relative(presentation: .named)))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                VStack(alignment: .trailing, spacing: 4) {
+                    Text(summary.latestE1RM.formattedWeight(unit: unit))
+                        .font(.title3.bold().monospacedDigit())
+                    TrendBadge(delta: summary.trend, unit: unit)
+                }
+            }
+
+            if summary.points.count >= 2 {
+                Chart(summary.points) { p in
+                    AreaMark(
+                        x: .value("Date", p.date),
+                        y: .value("e1RM", p.topE1RM)
+                    )
+                    .foregroundStyle(
+                        LinearGradient(
+                            colors: [trendColor.opacity(0.32), trendColor.opacity(0)],
+                            startPoint: .top,
+                            endPoint: .bottom
+                        )
+                    )
+                    .interpolationMethod(.monotone)
+
+                    LineMark(
+                        x: .value("Date", p.date),
+                        y: .value("e1RM", p.topE1RM)
+                    )
+                    .foregroundStyle(trendColor)
+                    .lineStyle(StrokeStyle(lineWidth: 2))
+                    .interpolationMethod(.monotone)
+                }
+                .frame(height: 92)
+                .chartXAxis(.hidden)
+                .chartYAxis(.hidden)
+            } else {
+                Text("One session in. Log a few more to see your trend.")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+                    .frame(maxWidth: .infinity, alignment: .leading)
+                    .padding(.vertical, 20)
+            }
+        }
+        .card()
     }
 }
 
@@ -175,8 +276,13 @@ private struct ExerciseStatRow: View {
                     .foregroundStyle(.secondary)
             }
             TrendBadge(delta: summary.trend, unit: unit)
+            Image(systemName: "chevron.right")
+                .font(.caption.bold())
+                .foregroundStyle(.tertiary)
         }
-        .padding(.vertical, 4)
+        .padding(.vertical, 12)
+        .padding(.horizontal, 14)
+        .contentShape(Rectangle())
     }
 }
 
