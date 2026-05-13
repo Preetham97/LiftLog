@@ -413,16 +413,17 @@ private struct ReadOnlyExerciseBlock: View {
     }
 
     /// Difference vs the most recent session of the same exercise that occurred
-    /// strictly before this one. nil if this is the first session.
-    private var deltaVsPrevious: Double? {
+    /// strictly before this one. Matches Stats behavior: if there's no earlier
+    /// session, treats the delta as 0 (rather than hiding the badge) so the
+    /// two views read identically.
+    private var deltaVsPrevious: Double {
         let currentID = log.session?.persistentModelID
-        var previousValue: Double?
+        var previousValue: Double = currentValue
         for (l, value) in ratedLogs {
             if l.session?.persistentModelID == currentID { break }
             previousValue = value
         }
-        guard let prev = previousValue else { return nil }
-        return currentValue - prev
+        return currentValue - previousValue
     }
 
     private var format: MetricFormat {
@@ -446,9 +447,7 @@ private struct ReadOnlyExerciseBlock: View {
                         .font(.caption2.bold())
                         .tracking(0.5)
                         .foregroundStyle(.tertiary)
-                    if let delta = deltaVsPrevious {
-                        TrendBadge(delta: delta, format: format)
-                    }
+                    TrendBadge(delta: deltaVsPrevious, format: format)
                     Image(systemName: "arrow.up.right")
                         .font(.caption2.weight(.bold))
                         .foregroundStyle(.tertiary)
