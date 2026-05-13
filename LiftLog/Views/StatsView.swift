@@ -8,7 +8,8 @@ struct StatsView: View {
 
     private var loggedExercises: [LoggedExercise] {
         allLoggedExercises.filter { log in
-            log.orderedSets.contains { $0.weight > 0 && $0.reps > 0 }
+            log.session?.isCompleted == true
+                && log.orderedSets.contains { $0.weight > 0 && $0.reps > 0 }
         }
     }
 
@@ -268,6 +269,7 @@ struct ExerciseProgressView: View {
         let key = exerciseName.normalizedExerciseKey
         return allLogs.filter { log in
             log.exerciseName.normalizedExerciseKey == key
+                && log.session?.isCompleted == true
                 && log.orderedSets.contains { $0.weight > 0 && $0.reps > 0 }
         }
     }

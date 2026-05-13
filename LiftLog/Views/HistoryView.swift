@@ -37,7 +37,7 @@ struct HistoryView: View {
 
     private var loggedSessions: [WorkoutSession] {
         sessions.filter { s in
-            s.loggedExercises.contains { log in
+            s.isCompleted && s.loggedExercises.contains { log in
                 log.sets.contains { $0.weight > 0 && $0.reps > 0 }
             }
         }
@@ -308,7 +308,7 @@ struct DaySessionsView: View {
     private var sessionsThatDay: [WorkoutSession] {
         let cal = Calendar.current
         return allSessions
-            .filter { cal.isDate($0.date, inSameDayAs: day) }
+            .filter { $0.isCompleted && cal.isDate($0.date, inSameDayAs: day) }
             .sorted { $0.date < $1.date }
     }
 

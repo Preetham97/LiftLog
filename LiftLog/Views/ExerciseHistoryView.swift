@@ -16,6 +16,7 @@ struct ExerciseHistoryView: View {
         return allLogs
             .filter { log in
                 log.exerciseName.normalizedExerciseKey == key
+                    && log.session?.isCompleted == true
                     && log.session?.date != nil
                     && log.orderedSets.contains { $0.weight > 0 && $0.reps > 0 }
             }
