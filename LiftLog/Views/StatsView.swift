@@ -115,13 +115,18 @@ struct StatsView: View {
 
                             if !featuredSummaries.isEmpty {
                                 SectionHeader(title: "From your latest session")
-                                ForEach(featuredSummaries) { summary in
-                                    NavigationLink {
-                                        ExerciseProgressView(exerciseName: summary.name)
-                                    } label: {
-                                        ExerciseChartCard(summary: summary, unit: unitPref.unit)
+                                LazyVGrid(columns: [
+                                    GridItem(.flexible(), spacing: 10),
+                                    GridItem(.flexible(), spacing: 10)
+                                ], spacing: 10) {
+                                    ForEach(featuredSummaries) { summary in
+                                        NavigationLink {
+                                            ExerciseProgressView(exerciseName: summary.name)
+                                        } label: {
+                                            ExerciseChartCard(summary: summary, unit: unitPref.unit)
+                                        }
+                                        .buttonStyle(.plain)
                                     }
-                                    .buttonStyle(.plain)
                                 }
                             }
 
@@ -197,26 +202,20 @@ private struct ExerciseChartCard: View {
     }
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 10) {
-            HStack(alignment: .top) {
-                VStack(alignment: .leading, spacing: 2) {
-                    Text(summary.name)
-                        .font(.headline)
-                        .foregroundStyle(.primary)
-                    Text(summary.lastSessionDate.formatted(.relative(presentation: .named)))
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-                Spacer()
-                VStack(alignment: .trailing, spacing: 4) {
-                    Text(summary.latestE1RM.formattedWeight(unit: unit))
-                        .font(.title3.bold().monospacedDigit())
-                    TrendBadge(delta: summary.trend, unit: unit)
-                }
+        VStack(alignment: .leading, spacing: 8) {
+            VStack(alignment: .leading, spacing: 2) {
+                Text(summary.name)
+                    .font(.subheadline.weight(.semibold))
+                    .foregroundStyle(.primary)
+                    .lineLimit(1)
+                    .minimumScaleFactor(0.85)
+                Text(summary.lastSessionDate.formatted(.relative(presentation: .named)))
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
             }
 
-            if summary.points.count >= 2 {
-                Chart(summary.points) { p in
+            Chart(summary.points) { p in
+                if summary.points.count >= 2 {
                     AreaMark(
                         x: .value("Date", p.date),
                         y: .value("e1RM", p.topE1RM)
@@ -238,18 +237,26 @@ private struct ExerciseChartCard: View {
                     .lineStyle(StrokeStyle(lineWidth: 2))
                     .interpolationMethod(.monotone)
                 }
-                .frame(height: 92)
-                .chartXAxis(.hidden)
-                .chartYAxis(.hidden)
-            } else {
-                Text("One session in. Log a few more to see your trend.")
-                    .font(.caption)
-                    .foregroundStyle(.tertiary)
-                    .frame(maxWidth: .infinity, alignment: .leading)
-                    .padding(.vertical, 20)
+
+                PointMark(
+                    x: .value("Date", p.date),
+                    y: .value("e1RM", p.topE1RM)
+                )
+                .foregroundStyle(trendColor)
+                .symbolSize(summary.points.count == 1 ? 80 : 24)
+            }
+            .frame(height: 70)
+            .chartXAxis(.hidden)
+            .chartYAxis(.hidden)
+
+            HStack(alignment: .firstTextBaseline, spacing: 6) {
+                Text(summary.latestE1RM.formattedWeight(unit: unit))
+                    .font(.subheadline.bold().monospacedDigit())
+                Spacer()
+                TrendBadge(delta: summary.trend, unit: unit)
             }
         }
-        .card()
+        .card(padding: 12)
     }
 }
 
