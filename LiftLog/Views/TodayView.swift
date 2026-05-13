@@ -162,27 +162,31 @@ struct TodaySessionView: View {
             restoreInProgressSession()
         }
         .toolbar {
-            ToolbarItemGroup(placement: .keyboard) {
-                Button {
-                    focusPrev()
-                } label: {
-                    Image(systemName: "chevron.up")
-                        .font(.body.weight(.semibold))
+            ToolbarItem(placement: .keyboard) {
+                HStack(spacing: 16) {
+                    Button {
+                        focusPrev()
+                    } label: {
+                        Image(systemName: "chevron.up")
+                            .font(.body.weight(.semibold))
+                    }
+                    .disabled(!canFocusPrev)
+
+                    Button {
+                        focusNext()
+                    } label: {
+                        Image(systemName: "chevron.down")
+                            .font(.body.weight(.semibold))
+                    }
+                    .disabled(!canFocusNext)
+
+                    Spacer()
+
+                    Button("Done") {
+                        focusedField = nil
+                    }
+                    .fontWeight(.semibold)
                 }
-                .disabled(!canFocusPrev)
-                Button {
-                    focusNext()
-                } label: {
-                    Image(systemName: "chevron.down")
-                        .font(.body.weight(.semibold))
-                }
-                .disabled(!canFocusNext)
-                Spacer()
-                Button("Done") {
-                    focusedField = nil
-                }
-                .fontWeight(.semibold)
-                .foregroundStyle(.primary)
             }
         }
         .confirmationDialog(
