@@ -83,7 +83,7 @@ struct StatsView: View {
         guard let s = latestSession else { return [] }
         return Set(
             s.loggedExercises
-                .filter { $0.orderedSets.contains { $0.weight > 0 && $0.reps > 0 } }
+                .filter { $0.hasAnyValidSet }
                 .map { $0.exerciseName.normalizedExerciseKey }
         )
     }
