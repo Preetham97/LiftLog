@@ -65,7 +65,106 @@ struct TodaySessionView: View {
 
     @State private var session: WorkoutSession?
     @State private var showingFinishConfirm = false
+    @State private var showingAddExercise = false
     @FocusState private var focusedField: SetField?
+
+    struct DisplayedExerciseItem: Identifiable {
+        let id: String  // normalized key
+        let name: String
+        let isBodyweight: Bool
+        let order: Int
+    }
+
+    private var visibleExercises: [DisplayedExerciseItem] {
+        let skipped = Set(session?.skippedExerciseKeys ?? [])
+        var seenKeys = Set<String>()
+        var items: [DisplayedExerciseItem] = []
+
+        for ex in day.orderedExercises {
+            let key = ex.name.normalizedExerciseKey
+            if skipped.contains(key) { continue }
+            seenKeys.insert(key)
+            items.append(.init(id: key, name: ex.name, isBodyweight: ex.isBodyweight, order: ex.order))
+        }
+
+        if let s = session {
+            let orderedLogs = s.loggedExercises.sorted { $0.order < $1.order }
+            for log in orderedLogs {
+                let key = log.exerciseName.normalizedExerciseKey
+                if seenKeys.contains(key) { continue }
+                if skipped.contains(key) { continue }
+                seenKeys.insert(key)
+                items.append(.init(
+                    id: key,
+                    name: log.exerciseName,
+                    isBodyweight: log.isBodyweight,
+                    order: log.order
+                ))
+            }
+        }
+
+        return items
+    }
+
+    private func skip(_ item: DisplayedExerciseItem) {
+        let s = session ?? {
+            let new = WorkoutSession(date: .now, dayName: day.name, routineName: routine.name)
+            context.insert(new)
+            session = new
+            return new
+        }()
+        // Remove any in-progress log for this exercise.
+        if let existing = s.loggedExercises.first(where: { $0.exerciseName.normalizedExerciseKey == item.id }) {
+            context.delete(existing)
+        }
+        if !s.skippedExerciseKeys.contains(item.id) {
+            s.skippedExerciseKeys.append(item.id)
+        }
+        do { try context.save() } catch {
+            print("[LiftLog] skip exercise failed: \(error)")
+        }
+    }
+
+    private func addOneOff(name: String, isBodyweight: Bool) {
+        let trimmed = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return }
+        let key = trimmed.normalizedExerciseKey
+
+        let s = session ?? {
+            let new = WorkoutSession(date: .now, dayName: day.name, routineName: routine.name)
+            context.insert(new)
+            session = new
+            return new
+        }()
+
+        // If it's currently in the skipped list, un-skip it.
+        s.skippedExerciseKeys.removeAll { $0 == key }
+
+        // If a log for this exercise already exists in the session, do nothing.
+        let already = s.loggedExercises.contains { $0.exerciseName.normalizedExerciseKey == key }
+        guard !already else {
+            do { try context.save() } catch { print("[LiftLog] addOneOff save failed: \(error)") }
+            return
+        }
+
+        // Order goes at the end of any existing logs / template order.
+        let templateMax = day.exercises.map(\.order).max() ?? -1
+        let logMax = s.loggedExercises.map(\.order).max() ?? -1
+        let nextOrder = max(templateMax, logMax) + 1
+
+        let log = LoggedExercise(
+            exerciseName: trimmed,
+            order: nextOrder,
+            isBodyweight: isBodyweight
+        )
+        context.insert(log)
+        log.session = s
+        s.loggedExercises.append(log)
+
+        do { try context.save() } catch {
+            print("[LiftLog] addOneOff save failed: \(error)")
+        }
+    }
 
     private var allFieldsInOrder: [SetField] {
         guard let session else { return [] }
@@ -123,15 +222,39 @@ struct TodaySessionView: View {
             VStack(spacing: 10) {
                 HeroHeader(routine: routine, day: day, totalSets: totalSets)
 
-                ForEach(day.orderedExercises) { exercise in
-                    ExerciseLogCard(
-                        exercise: exercise,
-                        session: $session,
-                        routine: routine,
-                        day: day,
-                        focus: $focusedField
+                ForEach(visibleExercises, id: \.id) { item in
+                    SwipeableRow(onDelete: { skip(item) }) {
+                        ExerciseLogCard(
+                            exerciseName: item.name,
+                            isBodyweight: item.isBodyweight,
+                            order: item.order,
+                            session: $session,
+                            routine: routine,
+                            day: day,
+                            onSkip: { skip(item) },
+                            focus: $focusedField
+                        )
+                    }
+                }
+
+                Button {
+                    showingAddExercise = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "plus")
+                        Text("Add exercise")
+                    }
+                    .font(.footnote.weight(.medium))
+                    .foregroundStyle(.secondary)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: Theme.pillCorner, style: .continuous)
+                            .strokeBorder(Color.secondary.opacity(0.25), lineWidth: 1)
                     )
                 }
+                .buttonStyle(.plain)
+                .padding(.top, 4)
 
                 Button {
                     showingFinishConfirm = true
@@ -204,6 +327,14 @@ struct TodaySessionView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Your sets are already saved. This only moves the routine cycle forward — you can adjust the next day later in the Routines tab.")
+        }
+        .sheet(isPresented: $showingAddExercise) {
+            AddExerciseSheet(
+                excludedKeys: Set(visibleExercises.map(\.id))
+            ) { name, isBodyweight in
+                addOneOff(name: name, isBodyweight: isBodyweight)
+            }
+            .presentationDetents([.medium, .large])
         }
     }
 
@@ -298,30 +429,39 @@ private struct ExerciseLogCard: View {
     @Environment(\.modelContext) private var context
     @EnvironmentObject private var unitPref: UnitPreference
 
-    let exercise: Exercise
+    let exerciseName: String
+    let isBodyweight: Bool
+    let order: Int
     @Binding var session: WorkoutSession?
     let routine: Routine
     let day: RoutineDay
+    let onSkip: () -> Void
     @FocusState.Binding var focus: SetField?
 
     @Query private var allLogs: [LoggedExercise]
 
     init(
-        exercise: Exercise,
+        exerciseName: String,
+        isBodyweight: Bool,
+        order: Int,
         session: Binding<WorkoutSession?>,
         routine: Routine,
         day: RoutineDay,
+        onSkip: @escaping () -> Void,
         focus: FocusState<SetField?>.Binding
     ) {
-        self.exercise = exercise
+        self.exerciseName = exerciseName
+        self.isBodyweight = isBodyweight
+        self.order = order
         self._session = session
         self.routine = routine
         self.day = day
+        self.onSkip = onSkip
         self._focus = focus
     }
 
     private var previousLogs: [LoggedExercise] {
-        let key = exercise.name.normalizedExerciseKey
+        let key = exerciseName.normalizedExerciseKey
         return allLogs.filter { log in
             log.exerciseName.normalizedExerciseKey == key
                 && log.session?.isCompleted == true
@@ -341,7 +481,7 @@ private struct ExerciseLogCard: View {
     }
 
     private var currentLog: LoggedExercise? {
-        session?.loggedExercises.first { $0.exerciseName == exercise.name }
+        session?.loggedExercises.first { $0.exerciseName == exerciseName }
     }
 
     var body: some View {
@@ -356,12 +496,12 @@ private struct ExerciseLogCard: View {
 
     private var idleRow: some View {
         HStack(spacing: 12) {
-            Text(exercise.name)
+            Text(exerciseName)
                 .font(.body.weight(.medium))
                 .foregroundStyle(.primary)
             Spacer()
             NavigationLink {
-                ExerciseHistoryView(exerciseName: exercise.name)
+                ExerciseHistoryView(exerciseName: exerciseName)
             } label: {
                 Image(systemName: "clock.arrow.circlepath")
                     .font(.footnote)
@@ -387,11 +527,11 @@ private struct ExerciseLogCard: View {
     private var expandedView: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 14) {
-                Text(exercise.name)
+                Text(exerciseName)
                     .font(.headline)
                 Spacer()
                 NavigationLink {
-                    ExerciseHistoryView(exerciseName: exercise.name)
+                    ExerciseHistoryView(exerciseName: exerciseName)
                 } label: {
                     Image(systemName: "clock.arrow.circlepath")
                         .font(.footnote)
@@ -424,7 +564,7 @@ private struct ExerciseLogCard: View {
                         SwipeableRow(onDelete: { delete(entry, from: log) }) {
                             SetRowView(
                                 entry: entry,
-                                isBodyweight: exercise.isBodyweight,
+                                isBodyweight: isBodyweight,
                                 focus: $focus
                             )
                         }
@@ -461,7 +601,7 @@ private struct ExerciseLogCard: View {
                     .fill(Theme.accent)
                     .frame(width: 8, height: 8)
                 VStack(alignment: .leading, spacing: 2) {
-                    Text(exercise.name)
+                    Text(exerciseName)
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.primary)
                     HStack(spacing: 6) {
@@ -501,9 +641,9 @@ private struct ExerciseLogCard: View {
             return new
         }()
         let log = LoggedExercise(
-            exerciseName: exercise.name,
-            order: exercise.order,
-            isBodyweight: exercise.isBodyweight
+            exerciseName: exerciseName,
+            order: order,
+            isBodyweight: isBodyweight
         )
         context.insert(log)
         log.session = s
@@ -796,6 +936,133 @@ struct FlowLayout: Layout {
             s.place(at: CGPoint(x: x, y: y), proposal: ProposedViewSize(size))
             x += size.width + spacing
             rowHeight = max(rowHeight, size.height)
+        }
+    }
+}
+
+// MARK: - Add exercise sheet
+
+private struct AddExerciseSheet: View {
+    @Environment(\.dismiss) private var dismiss
+    @Query private var allExercises: [Exercise]
+    @Query private var allLogs: [LoggedExercise]
+
+    let excludedKeys: Set<String>
+    let onAdd: (_ name: String, _ isBodyweight: Bool) -> Void
+
+    @State private var query: String = ""
+    @State private var isBodyweight: Bool = false
+
+    private struct Suggestion: Identifiable {
+        let id: String
+        let name: String
+        let isBodyweight: Bool
+    }
+
+    private var allSuggestions: [Suggestion] {
+        var bestName: [String: String] = [:]
+        var bestBW: [String: Bool] = [:]
+        for ex in allExercises {
+            let key = ex.name.normalizedExerciseKey
+            guard !key.isEmpty else { continue }
+            if (bestName[key]?.count ?? 0) < ex.name.count {
+                bestName[key] = ex.name
+            }
+            bestBW[key] = (bestBW[key] ?? false) || ex.isBodyweight
+        }
+        for log in allLogs {
+            let key = log.exerciseName.normalizedExerciseKey
+            guard !key.isEmpty else { continue }
+            if (bestName[key]?.count ?? 0) < log.exerciseName.count {
+                bestName[key] = log.exerciseName
+            }
+            bestBW[key] = (bestBW[key] ?? false) || log.isBodyweight
+        }
+        return bestName.keys
+            .filter { !excludedKeys.contains($0) }
+            .compactMap { key in
+                guard let name = bestName[key] else { return nil }
+                return Suggestion(id: key, name: name, isBodyweight: bestBW[key] ?? false)
+            }
+            .sorted { $0.name.lowercased() < $1.name.lowercased() }
+    }
+
+    private var filteredSuggestions: [Suggestion] {
+        let trimmed = query.trimmingCharacters(in: .whitespaces)
+        guard !trimmed.isEmpty else { return allSuggestions }
+        let q = trimmed.lowercased()
+        return allSuggestions.filter { $0.name.lowercased().contains(q) }
+    }
+
+    private var trimmedQuery: String {
+        query.trimmingCharacters(in: .whitespaces)
+    }
+
+    private var canCreate: Bool {
+        let key = trimmedQuery.normalizedExerciseKey
+        return !key.isEmpty
+            && !excludedKeys.contains(key)
+            && !filteredSuggestions.contains { $0.id == key }
+    }
+
+    var body: some View {
+        NavigationStack {
+            List {
+                Section {
+                    TextField("Exercise name", text: $query)
+                        .submitLabel(.done)
+                    Toggle("Bodyweight (reps only)", isOn: $isBodyweight)
+                } footer: {
+                    Text("Pick an existing exercise below, or type a new name to create one.")
+                }
+
+                if !filteredSuggestions.isEmpty {
+                    Section("Existing") {
+                        ForEach(filteredSuggestions) { s in
+                            Button {
+                                onAdd(s.name, s.isBodyweight)
+                                dismiss()
+                            } label: {
+                                HStack {
+                                    Image(systemName: "dumbbell.fill")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                    Text(s.name)
+                                        .foregroundStyle(.primary)
+                                    if s.isBodyweight {
+                                        Text("BW")
+                                            .font(.caption2.bold())
+                                            .padding(.horizontal, 6)
+                                            .padding(.vertical, 2)
+                                            .background(Color.secondary.opacity(0.15))
+                                            .foregroundStyle(.secondary)
+                                            .clipShape(Capsule())
+                                    }
+                                    Spacer()
+                                    Image(systemName: "plus")
+                                        .font(.caption.weight(.bold))
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            .navigationTitle("Add Exercise")
+            .navigationBarTitleDisplayMode(.inline)
+            .toolbar {
+                ToolbarItem(placement: .cancellationAction) {
+                    Button("Cancel") { dismiss() }
+                }
+                ToolbarItem(placement: .confirmationAction) {
+                    Button("Add") {
+                        onAdd(trimmedQuery, isBodyweight)
+                        dismiss()
+                    }
+                    .fontWeight(.semibold)
+                    .disabled(!canCreate)
+                }
+            }
         }
     }
 }

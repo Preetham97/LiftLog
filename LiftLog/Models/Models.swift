@@ -77,6 +77,10 @@ final class WorkoutSession {
     var dayName: String = ""
     var routineName: String = ""
     var isCompleted: Bool = false
+    /// Normalized exercise name keys that the user explicitly skipped for
+    /// this session. Lets Today hide template exercises without removing
+    /// them from the routine.
+    var skippedExerciseKeys: [String] = []
     @Relationship(deleteRule: .cascade, inverse: \LoggedExercise.session)
     var loggedExercises: [LoggedExercise] = []
 
