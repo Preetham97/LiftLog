@@ -102,7 +102,7 @@ struct TodaySessionView: View {
                 }
                 .padding(.top, 8)
 
-                Spacer(minLength: 20)
+                Spacer(minLength: 120)
             }
             .padding(.horizontal, 16)
             .padding(.top, 4)
@@ -117,7 +117,6 @@ struct TodaySessionView: View {
         }
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
-                Spacer()
                 Button("Done") {
                     UIApplication.shared.sendAction(
                         #selector(UIResponder.resignFirstResponder),
@@ -126,6 +125,7 @@ struct TodaySessionView: View {
                 }
                 .fontWeight(.semibold)
                 .foregroundStyle(.primary)
+                Spacer()
             }
         }
         .confirmationDialog(
