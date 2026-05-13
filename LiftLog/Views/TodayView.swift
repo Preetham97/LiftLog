@@ -147,11 +147,12 @@ struct TodaySessionView: View {
 
     private func restoreInProgressSession() {
         guard session == nil else { return }
-        let cutoff = Calendar.current.date(byAdding: .hour, value: -18, to: .now) ?? .distantPast
+        // No time cutoff: if there's an in-progress session for this
+        // routine + day, always restore it so the user can finish it
+        // manually no matter how long they were away.
         let candidate = allSessions
             .filter { s in
                 s.isCompleted == false
-                    && s.date >= cutoff
                     && s.dayName == day.name
                     && s.routineName == routine.name
             }
