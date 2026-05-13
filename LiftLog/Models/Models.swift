@@ -74,13 +74,15 @@ final class WorkoutSession {
     var date: Date = Date.now
     var dayName: String = ""
     var routineName: String = ""
+    var isCompleted: Bool = false
     @Relationship(deleteRule: .cascade, inverse: \LoggedExercise.session)
     var loggedExercises: [LoggedExercise] = []
 
-    init(date: Date = .now, dayName: String, routineName: String) {
+    init(date: Date = .now, dayName: String, routineName: String, isCompleted: Bool = false) {
         self.date = date
         self.dayName = dayName
         self.routineName = routineName
+        self.isCompleted = isCompleted
     }
 }
 

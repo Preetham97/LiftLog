@@ -53,6 +53,7 @@ private struct EmptyTodayState: View {
 struct TodaySessionView: View {
     @Environment(\.modelContext) private var context
     @EnvironmentObject private var unitPref: UnitPreference
+    @Query private var allSessions: [WorkoutSession]
 
     let routine: Routine
     let day: RoutineDay
@@ -107,8 +108,12 @@ struct TodaySessionView: View {
             .padding(.top, 4)
         }
         .scrollDismissesKeyboard(.interactively)
+        .onAppear {
+            restoreInProgressSession()
+        }
         .onChange(of: day.id) { _, _ in
             resetSessionForDayChange()
+            restoreInProgressSession()
         }
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
@@ -140,16 +145,32 @@ struct TodaySessionView: View {
         }
     }
 
+    private func restoreInProgressSession() {
+        guard session == nil else { return }
+        let cutoff = Calendar.current.date(byAdding: .hour, value: -18, to: .now) ?? .distantPast
+        let candidate = allSessions
+            .filter { s in
+                s.isCompleted == false
+                    && s.date >= cutoff
+                    && s.dayName == day.name
+                    && s.routineName == routine.name
+            }
+            .max { $0.date < $1.date }
+        session = candidate
+    }
+
     private func resetSessionForDayChange() {
         if let s = session {
             let hasRealWork = s.loggedExercises.contains { log in
                 log.sets.contains { $0.weight > 0 && $0.reps > 0 }
             }
-            if !hasRealWork {
+            if hasRealWork {
+                s.isCompleted = true
+            } else {
                 context.delete(s)
-                do { try context.save() } catch {
-                    print("[LiftLog] resetSession cleanup failed: \(error)")
-                }
+            }
+            do { try context.save() } catch {
+                print("[LiftLog] resetSession cleanup failed: \(error)")
             }
         }
         session = nil
@@ -160,7 +181,9 @@ struct TodaySessionView: View {
             let hasAnyLoggedWork = s.loggedExercises.contains { log in
                 log.sets.contains { $0.weight > 0 && $0.reps > 0 }
             }
-            if !hasAnyLoggedWork {
+            if hasAnyLoggedWork {
+                s.isCompleted = true
+            } else {
                 context.delete(s)
             }
         }
@@ -234,6 +257,7 @@ private struct ExerciseLogCard: View {
         let key = exercise.name.normalizedExerciseKey
         return allLogs.filter { log in
             log.exerciseName.normalizedExerciseKey == key
+                && log.session?.isCompleted == true
                 && log.session !== session
                 && log.orderedSets.contains { $0.weight > 0 && $0.reps > 0 }
         }
