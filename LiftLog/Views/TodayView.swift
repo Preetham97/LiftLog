@@ -50,6 +50,11 @@ private struct EmptyTodayState: View {
     }
 }
 
+enum SetField: Hashable {
+    case weight(PersistentIdentifier)
+    case reps(PersistentIdentifier)
+}
+
 struct TodaySessionView: View {
     @Environment(\.modelContext) private var context
     @EnvironmentObject private var unitPref: UnitPreference
@@ -60,6 +65,46 @@ struct TodaySessionView: View {
 
     @State private var session: WorkoutSession?
     @State private var showingFinishConfirm = false
+    @FocusState private var focusedField: SetField?
+
+    private var allFieldsInOrder: [SetField] {
+        guard let session else { return [] }
+        let orderedLogs = session.loggedExercises.sorted { $0.order < $1.order }
+        var fields: [SetField] = []
+        for log in orderedLogs where log.isCompleted == false || true {
+            // Include all logs; the user can edit any visible row.
+            for set in log.orderedSets {
+                fields.append(.weight(set.persistentModelID))
+                fields.append(.reps(set.persistentModelID))
+            }
+        }
+        return fields
+    }
+
+    private func focusNext() {
+        guard let current = focusedField else { return }
+        let fields = allFieldsInOrder
+        guard let idx = fields.firstIndex(of: current), idx + 1 < fields.count else { return }
+        focusedField = fields[idx + 1]
+    }
+
+    private func focusPrev() {
+        guard let current = focusedField else { return }
+        let fields = allFieldsInOrder
+        guard let idx = fields.firstIndex(of: current), idx > 0 else { return }
+        focusedField = fields[idx - 1]
+    }
+
+    private var canFocusPrev: Bool {
+        guard let current = focusedField else { return false }
+        return allFieldsInOrder.firstIndex(of: current).map { $0 > 0 } ?? false
+    }
+
+    private var canFocusNext: Bool {
+        guard let current = focusedField else { return false }
+        let fields = allFieldsInOrder
+        return fields.firstIndex(of: current).map { $0 + 1 < fields.count } ?? false
+    }
 
     private var nextDayName: String {
         let ordered = routine.orderedDays
@@ -82,7 +127,8 @@ struct TodaySessionView: View {
                         exercise: exercise,
                         session: $session,
                         routine: routine,
-                        day: day
+                        day: day,
+                        focus: $focusedField
                     )
                 }
 
@@ -117,15 +163,26 @@ struct TodaySessionView: View {
         }
         .toolbar {
             ToolbarItemGroup(placement: .keyboard) {
+                Button {
+                    focusPrev()
+                } label: {
+                    Image(systemName: "chevron.up")
+                        .font(.body.weight(.semibold))
+                }
+                .disabled(!canFocusPrev)
+                Button {
+                    focusNext()
+                } label: {
+                    Image(systemName: "chevron.down")
+                        .font(.body.weight(.semibold))
+                }
+                .disabled(!canFocusNext)
+                Spacer()
                 Button("Done") {
-                    UIApplication.shared.sendAction(
-                        #selector(UIResponder.resignFirstResponder),
-                        to: nil, from: nil, for: nil
-                    )
+                    focusedField = nil
                 }
                 .fontWeight(.semibold)
                 .foregroundStyle(.primary)
-                Spacer()
             }
         }
         .confirmationDialog(
@@ -244,14 +301,22 @@ private struct ExerciseLogCard: View {
     @Binding var session: WorkoutSession?
     let routine: Routine
     let day: RoutineDay
+    @FocusState.Binding var focus: SetField?
 
     @Query private var allLogs: [LoggedExercise]
 
-    init(exercise: Exercise, session: Binding<WorkoutSession?>, routine: Routine, day: RoutineDay) {
+    init(
+        exercise: Exercise,
+        session: Binding<WorkoutSession?>,
+        routine: Routine,
+        day: RoutineDay,
+        focus: FocusState<SetField?>.Binding
+    ) {
         self.exercise = exercise
         self._session = session
         self.routine = routine
         self.day = day
+        self._focus = focus
     }
 
     private var previousLogs: [LoggedExercise] {
@@ -356,7 +421,7 @@ private struct ExerciseLogCard: View {
                 VStack(spacing: 6) {
                     ForEach(log.orderedSets) { entry in
                         SwipeableRow(onDelete: { delete(entry, from: log) }) {
-                            SetRowView(entry: entry)
+                            SetRowView(entry: entry, focus: $focus)
                         }
                     }
                 }
@@ -493,6 +558,7 @@ private struct PreviousSessionStrip: View {
 private struct SetRowView: View {
     @EnvironmentObject private var unitPref: UnitPreference
     @Bindable var entry: SetEntry
+    @FocusState.Binding var focus: SetField?
 
     var body: some View {
         HStack(spacing: 10) {
@@ -503,9 +569,20 @@ private struct SetRowView: View {
                 .foregroundStyle(.secondary)
                 .clipShape(Circle())
 
-            NumericField(value: $entry.weight, placeholder: "0", suffix: unitPref.unit.label)
+            NumericField(
+                value: $entry.weight,
+                placeholder: "0",
+                suffix: unitPref.unit.label,
+                focus: $focus,
+                focusValue: .weight(entry.persistentModelID)
+            )
             Text("×").foregroundStyle(.secondary)
-            NumericIntField(value: $entry.reps, placeholder: "0")
+            NumericIntField(
+                value: $entry.reps,
+                placeholder: "0",
+                focus: $focus,
+                focusValue: .reps(entry.persistentModelID)
+            )
 
             Spacer(minLength: 4)
         }
@@ -582,9 +659,12 @@ private struct NumericField: View {
     @Binding var value: Double
     let placeholder: String
     let suffix: String
+    @FocusState.Binding var focus: SetField?
+    let focusValue: SetField
 
     @State private var text: String = ""
-    @FocusState private var focused: Bool
+
+    private var isFocused: Bool { focus == focusValue }
 
     var body: some View {
         HStack(spacing: 4) {
@@ -595,14 +675,14 @@ private struct NumericField: View {
                 .padding(.vertical, 8)
                 .background(Color(.tertiarySystemGroupedBackground))
                 .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-                .focused($focused)
+                .focused($focus, equals: focusValue)
                 .onAppear { syncFromValue() }
                 .onChange(of: text) { _, newText in
                     let cleaned = newText.replacingOccurrences(of: ",", with: ".")
                     value = Double(cleaned) ?? 0
                 }
                 .onChange(of: value) { _, _ in
-                    if !focused { syncFromValue() }
+                    if !isFocused { syncFromValue() }
                 }
             Text(suffix)
                 .font(.caption2)
@@ -624,9 +704,12 @@ private struct NumericField: View {
 private struct NumericIntField: View {
     @Binding var value: Int
     let placeholder: String
+    @FocusState.Binding var focus: SetField?
+    let focusValue: SetField
 
     @State private var text: String = ""
-    @FocusState private var focused: Bool
+
+    private var isFocused: Bool { focus == focusValue }
 
     var body: some View {
         TextField(placeholder, text: $text)
@@ -636,13 +719,13 @@ private struct NumericIntField: View {
             .padding(.vertical, 8)
             .background(Color(.tertiarySystemGroupedBackground))
             .clipShape(RoundedRectangle(cornerRadius: 10, style: .continuous))
-            .focused($focused)
+            .focused($focus, equals: focusValue)
             .onAppear { syncFromValue() }
             .onChange(of: text) { _, newText in
                 value = Int(newText) ?? 0
             }
             .onChange(of: value) { _, _ in
-                if !focused { syncFromValue() }
+                if !isFocused { syncFromValue() }
             }
     }
 
