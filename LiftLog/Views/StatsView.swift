@@ -5,6 +5,7 @@ import Charts
 struct StatsView: View {
     @EnvironmentObject private var unitPref: UnitPreference
     @Query private var allLoggedExercises: [LoggedExercise]
+    @State private var othersExpanded: Bool = false
 
     private var loggedExercises: [LoggedExercise] {
         allLoggedExercises.filter { log in
@@ -131,24 +132,50 @@ struct StatsView: View {
                             }
 
                             if !otherSummaries.isEmpty {
-                                SectionHeader(title: "Other exercises")
-                                VStack(spacing: 0) {
-                                    ForEach(Array(otherSummaries.enumerated()), id: \.element.id) { idx, summary in
-                                        NavigationLink {
-                                            ExerciseProgressView(exerciseName: summary.name)
-                                        } label: {
-                                            ExerciseStatRow(summary: summary, unit: unitPref.unit)
-                                        }
-                                        .buttonStyle(.plain)
-                                        if idx < otherSummaries.count - 1 {
-                                            Divider().padding(.leading, 16)
+                                Button {
+                                    withAnimation(.easeInOut(duration: 0.18)) {
+                                        othersExpanded.toggle()
+                                    }
+                                } label: {
+                                    HStack(spacing: 6) {
+                                        Text("Other exercises".uppercased())
+                                            .font(.caption2.bold())
+                                            .tracking(0.8)
+                                            .foregroundStyle(.secondary)
+                                        Text("· \(otherSummaries.count)")
+                                            .font(.caption2)
+                                            .foregroundStyle(.tertiary)
+                                        Spacer()
+                                        Image(systemName: othersExpanded ? "chevron.up" : "chevron.down")
+                                            .font(.caption.bold())
+                                            .foregroundStyle(.tertiary)
+                                    }
+                                    .padding(.horizontal, 4)
+                                    .padding(.top, 6)
+                                    .contentShape(Rectangle())
+                                }
+                                .buttonStyle(.plain)
+
+                                if othersExpanded {
+                                    VStack(spacing: 0) {
+                                        ForEach(Array(otherSummaries.enumerated()), id: \.element.id) { idx, summary in
+                                            NavigationLink {
+                                                ExerciseProgressView(exerciseName: summary.name)
+                                            } label: {
+                                                ExerciseStatRow(summary: summary, unit: unitPref.unit)
+                                            }
+                                            .buttonStyle(.plain)
+                                            if idx < otherSummaries.count - 1 {
+                                                Divider().padding(.leading, 16)
+                                            }
                                         }
                                     }
+                                    .background(
+                                        RoundedRectangle(cornerRadius: Theme.cardCorner, style: .continuous)
+                                            .fill(Color(.secondarySystemGroupedBackground))
+                                    )
+                                    .transition(.opacity.combined(with: .move(edge: .top)))
                                 }
-                                .background(
-                                    RoundedRectangle(cornerRadius: Theme.cardCorner, style: .continuous)
-                                        .fill(Color(.secondarySystemGroupedBackground))
-                                )
                             }
                         }
                         .padding(.horizontal, 16)
