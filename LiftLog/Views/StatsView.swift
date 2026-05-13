@@ -344,6 +344,10 @@ enum MetricFormat {
         summary.isBodyweight ? .reps : .weight(unit)
     }
 
+    static func from(isBodyweight: Bool, unit: WeightUnit) -> MetricFormat {
+        isBodyweight ? .reps : .weight(unit)
+    }
+
     func format(_ value: Double) -> String {
         switch self {
         case .weight(let u): return value.formattedWeight(unit: u)
@@ -359,7 +363,7 @@ enum MetricFormat {
     }
 }
 
-private struct TrendBadge: View {
+struct TrendBadge: View {
     let delta: Double
     let format: MetricFormat
 

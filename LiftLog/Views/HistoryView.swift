@@ -1,6 +1,5 @@
 import SwiftUI
 import SwiftData
-import Charts
 
 struct HistoryView: View {
     @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
@@ -376,13 +375,6 @@ private struct SessionSummaryCard: View {
     }
 }
 
-private struct TrendPoint: Identifiable {
-    let id = UUID()
-    let date: Date
-    let value: Double
-    let isCurrent: Bool
-}
-
 private struct ReadOnlyExerciseBlock: View {
     let log: LoggedExercise
     let allLogs: [LoggedExercise]
@@ -391,16 +383,17 @@ private struct ReadOnlyExerciseBlock: View {
     private var sets: [SetEntry] { log.validSets }
     private var isBodyweight: Bool { log.effectiveIsBodyweight }
 
-    private var points: [TrendPoint] {
+    /// All completed logs of this exercise sorted oldest → newest, paired with
+    /// the "top metric" value for the session.
+    private var ratedLogs: [(log: LoggedExercise, value: Double)] {
         let key = log.exerciseName.normalizedExerciseKey
-        let currentID = log.session?.persistentModelID
         return allLogs
             .filter { l in
                 l.exerciseName.normalizedExerciseKey == key
                     && l.session?.isCompleted == true
                     && l.hasAnyValidSet
             }
-            .compactMap { l -> TrendPoint? in
+            .compactMap { l -> (LoggedExercise, Date, Double)? in
                 guard let date = l.session?.date else { return nil }
                 let value: Double
                 if l.effectiveIsBodyweight {
@@ -408,48 +401,54 @@ private struct ReadOnlyExerciseBlock: View {
                 } else {
                     value = l.validSets.map(\.estimatedOneRepMax).max() ?? 0
                 }
-                return TrendPoint(
-                    date: date,
-                    value: value,
-                    isCurrent: l.session?.persistentModelID == currentID
-                )
+                return (l, date, value)
             }
-            .sorted { $0.date < $1.date }
-    }
-
-    private var metricLabel: String {
-        isBodyweight ? "top reps" : "e1RM"
+            .sorted { $0.1 < $1.1 }
+            .map { ($0.0, $0.2) }
     }
 
     private var currentValue: Double {
-        points.first(where: { $0.isCurrent })?.value ?? 0
+        let currentID = log.session?.persistentModelID
+        return ratedLogs.first(where: { $0.log.session?.persistentModelID == currentID })?.value ?? 0
     }
 
-    private var currentValueText: String {
-        if isBodyweight {
-            return "\(Int(currentValue)) reps"
-        } else {
-            return currentValue.formattedWeight(unit: unit)
+    /// Difference vs the most recent session of the same exercise that occurred
+    /// strictly before this one. nil if this is the first session.
+    private var deltaVsPrevious: Double? {
+        let currentID = log.session?.persistentModelID
+        var previousValue: Double?
+        for (l, value) in ratedLogs {
+            if l.session?.persistentModelID == currentID { break }
+            previousValue = value
         }
+        guard let prev = previousValue else { return nil }
+        return currentValue - prev
+    }
+
+    private var format: MetricFormat {
+        MetricFormat.from(isBodyweight: isBodyweight, unit: unit)
     }
 
     var body: some View {
         NavigationLink {
             ExerciseProgressView(exerciseName: log.exerciseName)
         } label: {
-            VStack(alignment: .leading, spacing: 10) {
+            VStack(alignment: .leading, spacing: 8) {
                 HStack {
                     Text(log.exerciseName)
                         .font(.subheadline.weight(.semibold))
                         .foregroundStyle(.primary)
                     Spacer()
-                    Text(currentValueText)
+                    Text(format.format(currentValue))
                         .font(.caption.monospacedDigit().weight(.semibold))
                         .foregroundStyle(.secondary)
-                    Text(metricLabel)
+                    Text(format.shortLabel)
                         .font(.caption2.bold())
                         .tracking(0.5)
                         .foregroundStyle(.tertiary)
+                    if let delta = deltaVsPrevious {
+                        TrendBadge(delta: delta, format: format)
+                    }
                     Image(systemName: "arrow.up.right")
                         .font(.caption2.weight(.bold))
                         .foregroundStyle(.tertiary)
@@ -475,52 +474,8 @@ private struct ReadOnlyExerciseBlock: View {
                         }
                     }
                 }
-
-                Sparkline(points: points)
-                    .frame(height: 48)
             }
         }
         .buttonStyle(.plain)
-    }
-}
-
-private struct Sparkline: View {
-    let points: [TrendPoint]
-
-    var body: some View {
-        if points.count >= 2 {
-            Chart {
-                ForEach(points) { p in
-                    LineMark(
-                        x: .value("Date", p.date),
-                        y: .value("Value", p.value)
-                    )
-                    .foregroundStyle(Theme.accent)
-                    .lineStyle(StrokeStyle(lineWidth: 1.8))
-                    .interpolationMethod(.monotone)
-                }
-                ForEach(points.filter(\.isCurrent)) { p in
-                    PointMark(
-                        x: .value("Date", p.date),
-                        y: .value("Value", p.value)
-                    )
-                    .foregroundStyle(Theme.accent)
-                    .symbolSize(80)
-                }
-            }
-            .chartXAxis(.hidden)
-            .chartYAxis(.hidden)
-        } else if let only = points.first {
-            Chart {
-                PointMark(
-                    x: .value("Date", only.date),
-                    y: .value("Value", only.value)
-                )
-                .foregroundStyle(Theme.accent)
-                .symbolSize(90)
-            }
-            .chartXAxis(.hidden)
-            .chartYAxis(.hidden)
-        }
     }
 }
