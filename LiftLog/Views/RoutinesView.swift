@@ -92,10 +92,10 @@ struct RoutinesView: View {
             let day = RoutineDay(name: dayTemplate.name, order: i)
             context.insert(day)
             routine.days.append(day)
-            for (j, exName) in dayTemplate.exercises.enumerated() {
-                let ex = Exercise(name: exName, order: j)
-                context.insert(ex)
-                day.exercises.append(ex)
+            for (j, ex) in dayTemplate.exercises.enumerated() {
+                let exercise = Exercise(name: ex.name, order: j, isBodyweight: ex.isBodyweight)
+                context.insert(exercise)
+                day.exercises.append(exercise)
             }
         }
         save(routine)
@@ -526,6 +526,27 @@ private struct InlineExerciseRow: View {
                 .foregroundStyle(.secondary)
             TextField("Exercise name", text: $exercise.name)
                 .textFieldStyle(.plain)
+            Button {
+                exercise.isBodyweight.toggle()
+            } label: {
+                Text("BW")
+                    .font(.caption2.bold())
+                    .tracking(0.4)
+                    .foregroundStyle(exercise.isBodyweight ? .white : .secondary)
+                    .padding(.horizontal, 8)
+                    .padding(.vertical, 3)
+                    .background(
+                        Capsule()
+                            .fill(exercise.isBodyweight ? Theme.accent : Color.clear)
+                    )
+                    .overlay(
+                        Capsule().strokeBorder(
+                            exercise.isBodyweight ? Color.clear : Color.secondary.opacity(0.4),
+                            lineWidth: 1
+                        )
+                    )
+            }
+            .buttonStyle(.plain)
             Button(role: .destructive, action: onDelete) {
                 Image(systemName: "minus.circle.fill")
                     .foregroundStyle(.secondary)

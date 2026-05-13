@@ -18,7 +18,7 @@ struct ExerciseHistoryView: View {
                 log.exerciseName.normalizedExerciseKey == key
                     && log.session?.isCompleted == true
                     && log.session?.date != nil
-                    && log.orderedSets.contains { $0.weight > 0 && $0.reps > 0 }
+                    && log.hasAnyValidSet
             }
             .sorted { ($0.session?.date ?? .distantPast) > ($1.session?.date ?? .distantPast) }
     }
@@ -57,6 +57,7 @@ private struct SessionLogCard: View {
     private var date: Date { log.session?.date ?? .now }
     private var dayName: String { log.session?.dayName ?? "" }
     private var routineName: String { log.session?.routineName ?? "" }
+    private var isBodyweight: Bool { log.effectiveIsBodyweight }
 
     private var topE1RM: Double {
         log.orderedSets.map(\.estimatedOneRepMax).max() ?? 0
@@ -68,6 +69,10 @@ private struct SessionLogCard: View {
 
     private var totalReps: Int {
         log.orderedSets.map(\.reps).reduce(0, +)
+    }
+
+    private var topReps: Int {
+        log.orderedSets.map(\.reps).max() ?? 0
     }
 
     var body: some View {
@@ -98,16 +103,22 @@ private struct SessionLogCard: View {
 
             VStack(spacing: 6) {
                 ForEach(log.orderedSets) { entry in
-                    SetLine(entry: entry, unit: unit)
+                    SetLine(entry: entry, unit: unit, isBodyweight: isBodyweight)
                 }
             }
 
             Divider()
 
             HStack(spacing: 16) {
-                MetaCell(label: "TOP e1RM", value: topE1RM.formattedWeight(unit: unit))
-                MetaCell(label: "VOLUME", value: totalVolume.formattedWeight(unit: unit))
-                MetaCell(label: "TOTAL REPS", value: "\(totalReps)")
+                if isBodyweight {
+                    MetaCell(label: "TOP REPS", value: "\(topReps)")
+                    MetaCell(label: "TOTAL REPS", value: "\(totalReps)")
+                    MetaCell(label: "SETS", value: "\(log.validSets.count)")
+                } else {
+                    MetaCell(label: "TOP e1RM", value: topE1RM.formattedWeight(unit: unit))
+                    MetaCell(label: "VOLUME", value: totalVolume.formattedWeight(unit: unit))
+                    MetaCell(label: "TOTAL REPS", value: "\(totalReps)")
+                }
             }
         }
         .card()
@@ -117,6 +128,7 @@ private struct SessionLogCard: View {
 private struct SetLine: View {
     let entry: SetEntry
     let unit: WeightUnit
+    let isBodyweight: Bool
 
     var body: some View {
         HStack(spacing: 12) {
@@ -126,15 +138,21 @@ private struct SetLine: View {
                 .background(Color(.tertiarySystemGroupedBackground))
                 .foregroundStyle(.secondary)
                 .clipShape(Circle())
-            Text(entry.weight.formattedWeight(unit: unit))
-                .font(.callout.monospacedDigit())
-            Text("×").foregroundStyle(.secondary)
-            Text("\(entry.reps) reps")
-                .font(.callout.monospacedDigit())
-            Spacer()
-            Text("e1RM \(entry.estimatedOneRepMax.formattedWeight(unit: unit))")
-                .font(.caption.monospacedDigit())
-                .foregroundStyle(.secondary)
+            if isBodyweight {
+                Text("\(entry.reps) reps")
+                    .font(.callout.monospacedDigit())
+                Spacer()
+            } else {
+                Text(entry.weight.formattedWeight(unit: unit))
+                    .font(.callout.monospacedDigit())
+                Text("×").foregroundStyle(.secondary)
+                Text("\(entry.reps) reps")
+                    .font(.callout.monospacedDigit())
+                Spacer()
+                Text("e1RM \(entry.estimatedOneRepMax.formattedWeight(unit: unit))")
+                    .font(.caption.monospacedDigit())
+                    .foregroundStyle(.secondary)
+            }
         }
     }
 }

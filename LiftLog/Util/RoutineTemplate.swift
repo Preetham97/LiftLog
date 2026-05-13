@@ -8,7 +8,17 @@ struct RoutineTemplate {
 
     struct TemplateDay {
         let name: String
-        let exercises: [String]
+        let exercises: [TemplateExercise]
+    }
+
+    struct TemplateExercise {
+        let name: String
+        let isBodyweight: Bool
+
+        init(_ name: String, bodyweight: Bool = false) {
+            self.name = name
+            self.isBodyweight = bodyweight
+        }
     }
 
     static let fiveDaySplit = RoutineTemplate(
@@ -17,39 +27,39 @@ struct RoutineTemplate {
         subtitle: "Chest · Back · Legs · Shoulders · Mixed",
         days: [
             .init(name: "Day 1", exercises: [
-                "Inclined Chest Machine Press",
-                "Pec Dec",
-                "Shoulder Machine Press",
-                "Machine Lateral Raises",
-                "Inclined DB Curls"
+                .init("Inclined Chest Machine Press"),
+                .init("Pec Dec"),
+                .init("Shoulder Machine Press"),
+                .init("Machine Lateral Raises"),
+                .init("Inclined DB Curls")
             ]),
             .init(name: "Day 2", exercises: [
-                "Normal Grip Lat Pull Down",
-                "Seated Wide Grip Cable Rows",
-                "Cable Triceps Pushdown",
-                "Dumbell Shrugs",
-                "Crunches"
+                .init("Normal Grip Lat Pull Down"),
+                .init("Seated Wide Grip Cable Rows"),
+                .init("Cable Triceps Pushdown"),
+                .init("Dumbell Shrugs"),
+                .init("Crunches", bodyweight: true)
             ]),
             .init(name: "Day 3", exercises: [
-                "Goblet Squats",
-                "Lying Leg Curls",
-                "Leg Extension Machine",
-                "Preacher Curls Machine",
-                "Crunches"
+                .init("Goblet Squats"),
+                .init("Lying Leg Curls"),
+                .init("Leg Extension Machine"),
+                .init("Preacher Curls Machine"),
+                .init("Crunches", bodyweight: true)
             ]),
             .init(name: "Day 4", exercises: [
-                "Shoulder Machine Press",
-                "Machine Lateral Raises",
-                "Chest Press Machine",
-                "Pec Dec",
-                "Overhead Extensions with Rope"
+                .init("Shoulder Machine Press"),
+                .init("Machine Lateral Raises"),
+                .init("Chest Press Machine"),
+                .init("Pec Dec"),
+                .init("Overhead Extensions with Rope")
             ]),
             .init(name: "Day 5", exercises: [
-                "Goblet Squats",
-                "Normal Grip Lat Pull Down",
-                "Lying Leg Curls",
-                "Seated Wide Grip Cable Rows",
-                "Leg Extension Machine"
+                .init("Goblet Squats"),
+                .init("Normal Grip Lat Pull Down"),
+                .init("Lying Leg Curls"),
+                .init("Seated Wide Grip Cable Rows"),
+                .init("Leg Extension Machine")
             ])
         ]
     )

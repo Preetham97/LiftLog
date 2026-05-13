@@ -71,10 +71,11 @@ struct TodaySessionView: View {
         guard let session else { return [] }
         let orderedLogs = session.loggedExercises.sorted { $0.order < $1.order }
         var fields: [SetField] = []
-        for log in orderedLogs where log.isCompleted == false || true {
-            // Include all logs; the user can edit any visible row.
+        for log in orderedLogs {
             for set in log.orderedSets {
-                fields.append(.weight(set.persistentModelID))
+                if !log.isBodyweight {
+                    fields.append(.weight(set.persistentModelID))
+                }
                 fields.append(.reps(set.persistentModelID))
             }
         }
@@ -223,9 +224,7 @@ struct TodaySessionView: View {
 
     private func resetSessionForDayChange() {
         if let s = session {
-            let hasRealWork = s.loggedExercises.contains { log in
-                log.sets.contains { $0.weight > 0 && $0.reps > 0 }
-            }
+            let hasRealWork = s.loggedExercises.contains { $0.hasAnyValidSet }
             if hasRealWork {
                 s.isCompleted = true
             } else {
@@ -240,9 +239,7 @@ struct TodaySessionView: View {
 
     private func finishSession(advance: Bool) {
         if let s = session {
-            let hasAnyLoggedWork = s.loggedExercises.contains { log in
-                log.sets.contains { $0.weight > 0 && $0.reps > 0 }
-            }
+            let hasAnyLoggedWork = s.loggedExercises.contains { $0.hasAnyValidSet }
             if hasAnyLoggedWork {
                 s.isCompleted = true
             } else {
@@ -329,7 +326,7 @@ private struct ExerciseLogCard: View {
             log.exerciseName.normalizedExerciseKey == key
                 && log.session?.isCompleted == true
                 && log.session !== session
-                && log.orderedSets.contains { $0.weight > 0 && $0.reps > 0 }
+                && log.hasAnyValidSet
         }
     }
 
@@ -425,7 +422,11 @@ private struct ExerciseLogCard: View {
                 VStack(spacing: 6) {
                     ForEach(log.orderedSets) { entry in
                         SwipeableRow(onDelete: { delete(entry, from: log) }) {
-                            SetRowView(entry: entry, focus: $focus)
+                            SetRowView(
+                                entry: entry,
+                                isBodyweight: exercise.isBodyweight,
+                                focus: $focus
+                            )
                         }
                     }
                 }
@@ -446,8 +447,11 @@ private struct ExerciseLogCard: View {
     }
 
     private func collapsedView(for log: LoggedExercise) -> some View {
-        let useful = log.orderedSets.filter { $0.weight > 0 && $0.reps > 0 }
-        let topSet = useful.max { $0.weight < $1.weight }
+        let useful = log.validSets
+        let isBW = log.effectiveIsBodyweight
+        let topSet: SetEntry? = isBW
+            ? useful.max { $0.reps < $1.reps }
+            : useful.max { $0.weight < $1.weight }
         return Button {
             log.isCompleted = false
             save("expandExercise")
@@ -464,7 +468,11 @@ private struct ExerciseLogCard: View {
                         Text("\(useful.count) set\(useful.count == 1 ? "" : "s")")
                         if let top = topSet {
                             Text("•").foregroundStyle(.tertiary)
-                            Text("top \(top.weight.formattedWeight(unit: unitPref.unit)) × \(top.reps)")
+                            if isBW {
+                                Text("top \(top.reps) reps")
+                            } else {
+                                Text("top \(top.weight.formattedWeight(unit: unitPref.unit)) × \(top.reps)")
+                            }
                         }
                     }
                     .font(.caption)
@@ -492,7 +500,11 @@ private struct ExerciseLogCard: View {
             session = new
             return new
         }()
-        let log = LoggedExercise(exerciseName: exercise.name, order: exercise.order)
+        let log = LoggedExercise(
+            exerciseName: exercise.name,
+            order: exercise.order,
+            isBodyweight: exercise.isBodyweight
+        )
         context.insert(log)
         log.session = s
         s.loggedExercises.append(log)
@@ -535,9 +547,10 @@ private struct PreviousSessionStrip: View {
                 .foregroundStyle(.secondary)
 
             if let prev = previous, !prev.orderedSets.isEmpty {
+                let isBW = prev.effectiveIsBodyweight
                 FlowLayout(spacing: 4) {
                     ForEach(prev.orderedSets) { s in
-                        Text("\(formatWeight(s.weight, unit: unit))×\(s.reps)")
+                        Text(isBW ? "\(s.reps) reps" : "\(formatWeight(s.weight, unit: unit))×\(s.reps)")
                             .font(.caption2.monospaced())
                             .padding(.horizontal, 6)
                             .padding(.vertical, 3)
@@ -562,6 +575,7 @@ private struct PreviousSessionStrip: View {
 private struct SetRowView: View {
     @EnvironmentObject private var unitPref: UnitPreference
     @Bindable var entry: SetEntry
+    let isBodyweight: Bool
     @FocusState.Binding var focus: SetField?
 
     var body: some View {
@@ -573,20 +587,27 @@ private struct SetRowView: View {
                 .foregroundStyle(.secondary)
                 .clipShape(Circle())
 
-            NumericField(
-                value: $entry.weight,
-                placeholder: "0",
-                suffix: unitPref.unit.label,
-                focus: $focus,
-                focusValue: .weight(entry.persistentModelID)
-            )
-            Text("×").foregroundStyle(.secondary)
+            if !isBodyweight {
+                NumericField(
+                    value: $entry.weight,
+                    placeholder: "0",
+                    suffix: unitPref.unit.label,
+                    focus: $focus,
+                    focusValue: .weight(entry.persistentModelID)
+                )
+                Text("×").foregroundStyle(.secondary)
+            }
             NumericIntField(
                 value: $entry.reps,
                 placeholder: "0",
                 focus: $focus,
                 focusValue: .reps(entry.persistentModelID)
             )
+            if isBodyweight {
+                Text("reps")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            }
 
             Spacer(minLength: 4)
         }

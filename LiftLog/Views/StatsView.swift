@@ -9,15 +9,15 @@ struct StatsView: View {
 
     private var loggedExercises: [LoggedExercise] {
         allLoggedExercises.filter { log in
-            log.session?.isCompleted == true
-                && log.orderedSets.contains { $0.weight > 0 && $0.reps > 0 }
+            log.session?.isCompleted == true && log.hasAnyValidSet
         }
     }
 
     struct ExerciseSummary: Identifiable {
         let id: String
         let name: String
-        let latestE1RM: Double
+        let isBodyweight: Bool
+        let latestValue: Double
         let sessionCount: Int
         let trend: Double
         let lastSessionDate: Date
@@ -29,34 +29,43 @@ struct StatsView: View {
         let grouped = Dictionary(grouping: loggedExercises, by: { $0.exerciseName.normalizedExerciseKey })
         return grouped.compactMap { key, logs in
             // Pick the most recent variant of the name as the display string.
-            let displayName = logs
-                .max { ($0.session?.date ?? .distantPast) < ($1.session?.date ?? .distantPast) }?
-                .exerciseName ?? key
+            let mostRecent = logs.max { ($0.session?.date ?? .distantPast) < ($1.session?.date ?? .distantPast) }
+            let displayName = mostRecent?.exerciseName ?? key
+            let isBW = mostRecent?.effectiveIsBodyweight ?? false
 
-            let dated = logs.compactMap { log -> (Date, Double)? in
+            let dated = logs.compactMap { log -> (Date, Double, Double)? in
                 guard let d = log.session?.date else { return nil }
-                let top = log.orderedSets.map(\.estimatedOneRepMax).max() ?? 0
-                guard top > 0 else { return nil }
-                return (d, top)
+                let valid = log.validSets
+                guard !valid.isEmpty else { return nil }
+                let topV: Double
+                let totalV: Double
+                if log.effectiveIsBodyweight {
+                    topV = Double(valid.map(\.reps).max() ?? 0)
+                    totalV = Double(valid.map(\.reps).reduce(0, +))
+                } else {
+                    topV = valid.map(\.estimatedOneRepMax).max() ?? 0
+                    totalV = valid.map(\.volume).reduce(0, +)
+                }
+                guard topV > 0 else { return nil }
+                return (d, topV, totalV)
             }.sorted { $0.0 < $1.0 }
             guard let last = dated.last else { return nil }
             let prev = dated.dropLast().last?.1 ?? last.1
             let trend = last.1 - prev
 
-            // The most recent set across all of this exercise's logs.
-            // Falls back to the session date so ties never reach the sort.
+            // The most recent valid set across all of this exercise's logs.
             let latestSetAt = logs
-                .flatMap { $0.orderedSets }
-                .filter { $0.weight > 0 && $0.reps > 0 }
+                .flatMap { $0.validSets }
                 .map(\.completedAt)
                 .max() ?? last.0
 
-            let points = dated.map { SessionPoint(date: $0.0, topE1RM: $0.1, totalVolume: 0) }
+            let points = dated.map { SessionPoint(date: $0.0, topValue: $0.1, totalValue: $0.2) }
 
             return ExerciseSummary(
                 id: key,
                 name: displayName,
-                latestE1RM: last.1,
+                isBodyweight: isBW,
+                latestValue: last.1,
                 sessionCount: dated.count,
                 trend: trend,
                 lastSessionDate: last.0,
@@ -251,7 +260,7 @@ private struct ExerciseChartCard: View {
                 if summary.points.count >= 2 {
                     AreaMark(
                         x: .value("Date", p.date),
-                        y: .value("e1RM", p.topE1RM)
+                        y: .value("Top", p.topValue)
                     )
                     .foregroundStyle(
                         LinearGradient(
@@ -264,7 +273,7 @@ private struct ExerciseChartCard: View {
 
                     LineMark(
                         x: .value("Date", p.date),
-                        y: .value("e1RM", p.topE1RM)
+                        y: .value("Top", p.topValue)
                     )
                     .foregroundStyle(trendColor)
                     .lineStyle(StrokeStyle(lineWidth: 2))
@@ -273,7 +282,7 @@ private struct ExerciseChartCard: View {
 
                 PointMark(
                     x: .value("Date", p.date),
-                    y: .value("e1RM", p.topE1RM)
+                    y: .value("Top", p.topValue)
                 )
                 .foregroundStyle(trendColor)
                 .symbolSize(summary.points.count == 1 ? 80 : 24)
@@ -283,10 +292,10 @@ private struct ExerciseChartCard: View {
             .chartYAxis(.hidden)
 
             HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(summary.latestE1RM.formattedWeight(unit: unit))
+                Text(MetricFormat.from(summary: summary, unit: unit).format(summary.latestValue))
                     .font(.subheadline.bold().monospacedDigit())
                 Spacer()
-                TrendBadge(delta: summary.trend, unit: unit)
+                TrendBadge(delta: summary.trend, format: .from(summary: summary, unit: unit))
             }
         }
         .card(padding: 12)
@@ -298,6 +307,7 @@ private struct ExerciseStatRow: View {
     let unit: WeightUnit
 
     var body: some View {
+        let fmt = MetricFormat.from(summary: summary, unit: unit)
         HStack(spacing: 12) {
             VStack(alignment: .leading, spacing: 2) {
                 Text(summary.name)
@@ -309,13 +319,13 @@ private struct ExerciseStatRow: View {
             }
             Spacer()
             VStack(alignment: .trailing, spacing: 2) {
-                Text(summary.latestE1RM.formattedWeight(unit: unit))
+                Text(fmt.format(summary.latestValue))
                     .font(.subheadline.bold().monospacedDigit())
-                Text("e1RM")
+                Text(fmt.shortLabel)
                     .font(.caption2)
                     .foregroundStyle(.secondary)
             }
-            TrendBadge(delta: summary.trend, unit: unit)
+            TrendBadge(delta: summary.trend, format: fmt)
             Image(systemName: "chevron.right")
                 .font(.caption.bold())
                 .foregroundStyle(.tertiary)
@@ -326,9 +336,32 @@ private struct ExerciseStatRow: View {
     }
 }
 
+enum MetricFormat {
+    case weight(WeightUnit)
+    case reps
+
+    static func from(summary: StatsView.ExerciseSummary, unit: WeightUnit) -> MetricFormat {
+        summary.isBodyweight ? .reps : .weight(unit)
+    }
+
+    func format(_ value: Double) -> String {
+        switch self {
+        case .weight(let u): return value.formattedWeight(unit: u)
+        case .reps: return "\(Int(value.rounded())) reps"
+        }
+    }
+
+    var shortLabel: String {
+        switch self {
+        case .weight: return "e1RM"
+        case .reps: return "top reps"
+        }
+    }
+}
+
 private struct TrendBadge: View {
     let delta: Double
-    let unit: WeightUnit
+    let format: MetricFormat
 
     private var color: Color {
         if delta > 0.5 { return .green }
@@ -346,7 +379,7 @@ private struct TrendBadge: View {
         VStack(spacing: 2) {
             Image(systemName: icon)
                 .font(.caption.bold())
-            Text(abs(delta).formattedWeight(unit: unit))
+            Text(format.format(abs(delta)))
                 .font(.caption2.monospacedDigit())
         }
         .foregroundStyle(color)
@@ -376,8 +409,10 @@ private struct EmptyStatsState: View {
 struct SessionPoint: Identifiable {
     let id = UUID()
     let date: Date
-    let topE1RM: Double
-    let totalVolume: Double
+    /// e1RM for weighted exercises, max reps in a single set for bodyweight.
+    let topValue: Double
+    /// Total volume (weight × reps) for weighted, total reps for bodyweight.
+    let totalValue: Double
 }
 
 enum ChartRange: String, CaseIterable, Identifiable {
@@ -416,19 +451,32 @@ struct ExerciseProgressView: View {
         return allLogs.filter { log in
             log.exerciseName.normalizedExerciseKey == key
                 && log.session?.isCompleted == true
-                && log.orderedSets.contains { $0.weight > 0 && $0.reps > 0 }
+                && log.hasAnyValidSet
         }
+    }
+
+    private var isBodyweight: Bool {
+        logs
+            .max { ($0.session?.date ?? .distantPast) < ($1.session?.date ?? .distantPast) }?
+            .effectiveIsBodyweight ?? false
     }
 
     private var allSessionPoints: [SessionPoint] {
         logs
             .compactMap { log -> SessionPoint? in
                 guard let date = log.session?.date else { return nil }
-                let sets = log.orderedSets.filter { $0.reps > 0 && $0.weight > 0 }
-                guard !sets.isEmpty else { return nil }
-                let top = sets.map(\.estimatedOneRepMax).max() ?? 0
-                let volume = sets.map(\.volume).reduce(0, +)
-                return SessionPoint(date: date, topE1RM: top, totalVolume: volume)
+                let valid = log.validSets
+                guard !valid.isEmpty else { return nil }
+                let topV: Double
+                let totalV: Double
+                if log.effectiveIsBodyweight {
+                    topV = Double(valid.map(\.reps).max() ?? 0)
+                    totalV = Double(valid.map(\.reps).reduce(0, +))
+                } else {
+                    topV = valid.map(\.estimatedOneRepMax).max() ?? 0
+                    totalV = valid.map(\.volume).reduce(0, +)
+                }
+                return SessionPoint(date: date, topValue: topV, totalValue: totalV)
             }
             .sorted { $0.date < $1.date }
     }
@@ -439,8 +487,23 @@ struct ExerciseProgressView: View {
         return allSessionPoints.filter { $0.date >= cutoff }
     }
 
-    private var bestE1RM: Double { sessionPoints.map(\.topE1RM).max() ?? 0 }
-    private var bestVolume: Double { sessionPoints.map(\.totalVolume).max() ?? 0 }
+    private var bestTop: Double { sessionPoints.map(\.topValue).max() ?? 0 }
+    private var bestTotal: Double { sessionPoints.map(\.totalValue).max() ?? 0 }
+
+    private var topFormat: MetricFormat {
+        isBodyweight ? .reps : .weight(unitPref.unit)
+    }
+
+    private var topTitle: String { isBodyweight ? "Top reps" : "Estimated 1RM" }
+    private var topSubtitle: String {
+        isBodyweight ? "Best set in each session" : "Top set per session (Epley formula)"
+    }
+    private var totalTitle: String { isBodyweight ? "Total reps" : "Total Volume" }
+    private var totalSubtitle: String {
+        isBodyweight ? "Sum of reps across all sets" : "Sum of weight × reps across all sets"
+    }
+    private var bestTopLabel: String { isBodyweight ? "BEST TOP REPS" : "BEST e1RM" }
+    private var bestTotalLabel: String { isBodyweight ? "BEST TOTAL REPS" : "BEST VOLUME" }
 
     var body: some View {
         ZStack {
@@ -464,28 +527,28 @@ struct ExerciseProgressView: View {
 
                         HighlightRow(
                             items: [
-                                .init(value: bestE1RM.formattedWeight(unit: unitPref.unit), label: "BEST e1RM"),
-                                .init(value: bestVolume.formattedWeight(unit: unitPref.unit), label: "BEST VOLUME"),
+                                .init(value: topFormat.format(bestTop), label: bestTopLabel),
+                                .init(value: topFormat.format(bestTotal), label: bestTotalLabel),
                                 .init(value: "\(sessionPoints.count)", label: "SESSIONS")
                             ]
                         )
 
                         ChartCard(
-                            title: "Estimated 1RM",
-                            subtitle: "Top set per session (Epley formula)",
+                            title: topTitle,
+                            subtitle: topSubtitle,
                             points: sessionPoints,
-                            valueKeyPath: \.topE1RM,
+                            valueKeyPath: \.topValue,
                             color: Theme.accent,
-                            unit: unitPref.unit
+                            format: topFormat
                         )
 
                         ChartCard(
-                            title: "Total Volume",
-                            subtitle: "Sum of weight × reps across all sets",
+                            title: totalTitle,
+                            subtitle: totalSubtitle,
                             points: sessionPoints,
-                            valueKeyPath: \.totalVolume,
+                            valueKeyPath: \.totalValue,
                             color: .blue,
-                            unit: unitPref.unit
+                            format: topFormat
                         )
 
                         NavigationLink {
@@ -593,7 +656,7 @@ private struct ChartCard: View {
     let points: [SessionPoint]
     let valueKeyPath: KeyPath<SessionPoint, Double>
     let color: Color
-    let unit: WeightUnit
+    let format: MetricFormat
 
     var body: some View {
         VStack(alignment: .leading, spacing: 10) {

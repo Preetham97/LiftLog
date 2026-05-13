@@ -4,7 +4,7 @@ A clean iOS workout tracker focused on **progressive overload**: every time you 
 
 ## Features
 
-- **Routines** — build cycles (Push/Pull/Legs, Upper/Lower, anything). Multiple routines supported; one is active at a time. Comes with a 5-day starter template (chest/back/legs/shoulders/mixed) you can pick from the empty state or the "+" menu.
+- **Routines** — build cycles (Push/Pull/Legs, Upper/Lower, anything). Multiple routines supported; one is active at a time. Comes with a 5-day starter template (chest/back/legs/shoulders/mixed) you can pick from the empty state or the "+" menu. Each exercise has a "BW" toggle for bodyweight lifts (crunches, pushups, pullups) — those hide the weight field and switch every chart and summary to a reps-based metric.
 - **Today** — shows the next day in your active routine's cycle, with each exercise's previous session inline. Pre-fills new sets with last-session weights to make small bumps frictionless.
 - **Manual cycle control** — accidental "advance" is recoverable: swipe any day → "Set Next".
 - **Stats** — per-exercise progress charts:

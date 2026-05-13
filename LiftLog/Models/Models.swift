@@ -59,13 +59,15 @@ final class Exercise {
     var muscleGroup: String = ""
     var order: Int = 0
     var notes: String = ""
+    var isBodyweight: Bool = false
     var day: RoutineDay?
 
-    init(name: String, muscleGroup: String = "", order: Int = 0, notes: String = "") {
+    init(name: String, muscleGroup: String = "", order: Int = 0, notes: String = "", isBodyweight: Bool = false) {
         self.name = name
         self.muscleGroup = muscleGroup
         self.order = order
         self.notes = notes
+        self.isBodyweight = isBodyweight
     }
 }
 
@@ -91,18 +93,44 @@ final class LoggedExercise {
     var exerciseName: String = ""
     var order: Int = 0
     var isCompleted: Bool = false
+    var isBodyweight: Bool = false
     var session: WorkoutSession?
     @Relationship(deleteRule: .cascade, inverse: \SetEntry.loggedExercise)
     var sets: [SetEntry] = []
 
-    init(exerciseName: String, order: Int, isCompleted: Bool = false) {
+    init(exerciseName: String, order: Int, isCompleted: Bool = false, isBodyweight: Bool = false) {
         self.exerciseName = exerciseName
         self.order = order
         self.isCompleted = isCompleted
+        self.isBodyweight = isBodyweight
     }
 
     var orderedSets: [SetEntry] {
         sets.sorted { $0.order < $1.order }
+    }
+
+    /// True if this lift is bodyweight either by explicit flag or by data shape
+    /// (every valid set has zero weight). Lets old logs without the flag still
+    /// display as bodyweight when that's clearly what they are.
+    var effectiveIsBodyweight: Bool {
+        if isBodyweight { return true }
+        let withReps = orderedSets.filter { $0.reps > 0 }
+        return !withReps.isEmpty && withReps.allSatisfy { $0.weight == 0 }
+    }
+
+    /// A set "counts" as logged work if it satisfies the lift type's minimum:
+    /// reps for bodyweight, weight × reps for weighted.
+    func setIsValid(_ entry: SetEntry) -> Bool {
+        if effectiveIsBodyweight { return entry.reps > 0 }
+        return entry.weight > 0 && entry.reps > 0
+    }
+
+    var hasAnyValidSet: Bool {
+        sets.contains { setIsValid($0) }
+    }
+
+    var validSets: [SetEntry] {
+        orderedSets.filter { setIsValid($0) }
     }
 }
 

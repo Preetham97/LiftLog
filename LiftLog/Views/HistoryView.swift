@@ -37,9 +37,7 @@ struct HistoryView: View {
 
     private var loggedSessions: [WorkoutSession] {
         sessions.filter { s in
-            s.isCompleted && s.loggedExercises.contains { log in
-                log.sets.contains { $0.weight > 0 && $0.reps > 0 }
-            }
+            s.isCompleted && s.loggedExercises.contains { $0.hasAnyValidSet }
         }
     }
 
@@ -337,7 +335,7 @@ private struct SessionSummaryCard: View {
 
     private var loggedExercises: [LoggedExercise] {
         session.loggedExercises
-            .filter { log in log.orderedSets.contains { $0.weight > 0 && $0.reps > 0 } }
+            .filter { $0.hasAnyValidSet }
             .sorted { $0.order < $1.order }
     }
 
@@ -379,9 +377,8 @@ private struct ReadOnlyExerciseBlock: View {
     let log: LoggedExercise
     let unit: WeightUnit
 
-    private var sets: [SetEntry] {
-        log.orderedSets.filter { $0.weight > 0 && $0.reps > 0 }
-    }
+    private var sets: [SetEntry] { log.validSets }
+    private var isBodyweight: Bool { log.effectiveIsBodyweight }
 
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -394,8 +391,13 @@ private struct ReadOnlyExerciseBlock: View {
                             .font(.caption.monospacedDigit())
                             .foregroundStyle(.tertiary)
                             .frame(width: 18, alignment: .leading)
-                        Text("\(s.weight.formattedWeight(unit: unit)) × \(s.reps) reps")
-                            .font(.callout.monospacedDigit())
+                        if isBodyweight {
+                            Text("\(s.reps) reps")
+                                .font(.callout.monospacedDigit())
+                        } else {
+                            Text("\(s.weight.formattedWeight(unit: unit)) × \(s.reps) reps")
+                                .font(.callout.monospacedDigit())
+                        }
                         Spacer()
                     }
                 }
