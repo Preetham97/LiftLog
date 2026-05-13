@@ -1,5 +1,6 @@
 import SwiftUI
 import SwiftData
+import Charts
 
 struct HistoryView: View {
     @Query(sort: \WorkoutSession.date) private var sessions: [WorkoutSession]
@@ -302,6 +303,7 @@ struct DaySessionsView: View {
     let day: Date
 
     @Query private var allSessions: [WorkoutSession]
+    @Query private var allLogs: [LoggedExercise]
 
     private var sessionsThatDay: [WorkoutSession] {
         let cal = Calendar.current
@@ -316,7 +318,7 @@ struct DaySessionsView: View {
             ScrollView {
                 VStack(spacing: 12) {
                     ForEach(sessionsThatDay) { session in
-                        SessionSummaryCard(session: session, unit: unitPref.unit)
+                        SessionSummaryCard(session: session, allLogs: allLogs, unit: unitPref.unit)
                     }
                 }
                 .padding(.horizontal, 16)
@@ -331,6 +333,7 @@ struct DaySessionsView: View {
 
 private struct SessionSummaryCard: View {
     let session: WorkoutSession
+    let allLogs: [LoggedExercise]
     let unit: WeightUnit
 
     private var loggedExercises: [LoggedExercise] {
@@ -362,9 +365,9 @@ private struct SessionSummaryCard: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } else {
-                VStack(alignment: .leading, spacing: 14) {
+                VStack(alignment: .leading, spacing: 18) {
                     ForEach(loggedExercises) { log in
-                        ReadOnlyExerciseBlock(log: log, unit: unit)
+                        ReadOnlyExerciseBlock(log: log, allLogs: allLogs, unit: unit)
                     }
                 }
             }
@@ -373,35 +376,151 @@ private struct SessionSummaryCard: View {
     }
 }
 
+private struct TrendPoint: Identifiable {
+    let id = UUID()
+    let date: Date
+    let value: Double
+    let isCurrent: Bool
+}
+
 private struct ReadOnlyExerciseBlock: View {
     let log: LoggedExercise
+    let allLogs: [LoggedExercise]
     let unit: WeightUnit
 
     private var sets: [SetEntry] { log.validSets }
     private var isBodyweight: Bool { log.effectiveIsBodyweight }
 
+    private var points: [TrendPoint] {
+        let key = log.exerciseName.normalizedExerciseKey
+        let currentID = log.session?.persistentModelID
+        return allLogs
+            .filter { l in
+                l.exerciseName.normalizedExerciseKey == key
+                    && l.session?.isCompleted == true
+                    && l.hasAnyValidSet
+            }
+            .compactMap { l -> TrendPoint? in
+                guard let date = l.session?.date else { return nil }
+                let value: Double
+                if l.effectiveIsBodyweight {
+                    value = Double(l.validSets.map(\.reps).max() ?? 0)
+                } else {
+                    value = l.validSets.map(\.estimatedOneRepMax).max() ?? 0
+                }
+                return TrendPoint(
+                    date: date,
+                    value: value,
+                    isCurrent: l.session?.persistentModelID == currentID
+                )
+            }
+            .sorted { $0.date < $1.date }
+    }
+
+    private var metricLabel: String {
+        isBodyweight ? "top reps" : "e1RM"
+    }
+
+    private var currentValue: Double {
+        points.first(where: { $0.isCurrent })?.value ?? 0
+    }
+
+    private var currentValueText: String {
+        if isBodyweight {
+            return "\(Int(currentValue)) reps"
+        } else {
+            return currentValue.formattedWeight(unit: unit)
+        }
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
-            Text(log.exerciseName)
-                .font(.subheadline.weight(.semibold))
-            VStack(alignment: .leading, spacing: 4) {
-                ForEach(Array(sets.enumerated()), id: \.element.id) { idx, s in
-                    HStack(spacing: 8) {
-                        Text("\(idx + 1).")
-                            .font(.caption.monospacedDigit())
-                            .foregroundStyle(.tertiary)
-                            .frame(width: 18, alignment: .leading)
-                        if isBodyweight {
-                            Text("\(s.reps) reps")
-                                .font(.callout.monospacedDigit())
-                        } else {
-                            Text("\(s.weight.formattedWeight(unit: unit)) × \(s.reps) reps")
-                                .font(.callout.monospacedDigit())
+        NavigationLink {
+            ExerciseProgressView(exerciseName: log.exerciseName)
+        } label: {
+            VStack(alignment: .leading, spacing: 10) {
+                HStack {
+                    Text(log.exerciseName)
+                        .font(.subheadline.weight(.semibold))
+                        .foregroundStyle(.primary)
+                    Spacer()
+                    Text(currentValueText)
+                        .font(.caption.monospacedDigit().weight(.semibold))
+                        .foregroundStyle(.secondary)
+                    Text(metricLabel)
+                        .font(.caption2.bold())
+                        .tracking(0.5)
+                        .foregroundStyle(.tertiary)
+                    Image(systemName: "arrow.up.right")
+                        .font(.caption2.weight(.bold))
+                        .foregroundStyle(.tertiary)
+                }
+
+                VStack(alignment: .leading, spacing: 4) {
+                    ForEach(Array(sets.enumerated()), id: \.element.id) { idx, s in
+                        HStack(spacing: 8) {
+                            Text("\(idx + 1).")
+                                .font(.caption.monospacedDigit())
+                                .foregroundStyle(.tertiary)
+                                .frame(width: 18, alignment: .leading)
+                            if isBodyweight {
+                                Text("\(s.reps) reps")
+                                    .font(.callout.monospacedDigit())
+                                    .foregroundStyle(.primary)
+                            } else {
+                                Text("\(s.weight.formattedWeight(unit: unit)) × \(s.reps) reps")
+                                    .font(.callout.monospacedDigit())
+                                    .foregroundStyle(.primary)
+                            }
+                            Spacer()
                         }
-                        Spacer()
                     }
                 }
+
+                Sparkline(points: points)
+                    .frame(height: 48)
             }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+private struct Sparkline: View {
+    let points: [TrendPoint]
+
+    var body: some View {
+        if points.count >= 2 {
+            Chart {
+                ForEach(points) { p in
+                    LineMark(
+                        x: .value("Date", p.date),
+                        y: .value("Value", p.value)
+                    )
+                    .foregroundStyle(Theme.accent)
+                    .lineStyle(StrokeStyle(lineWidth: 1.8))
+                    .interpolationMethod(.monotone)
+                }
+                ForEach(points.filter(\.isCurrent)) { p in
+                    PointMark(
+                        x: .value("Date", p.date),
+                        y: .value("Value", p.value)
+                    )
+                    .foregroundStyle(Theme.accent)
+                    .symbolSize(80)
+                }
+            }
+            .chartXAxis(.hidden)
+            .chartYAxis(.hidden)
+        } else if let only = points.first {
+            Chart {
+                PointMark(
+                    x: .value("Date", only.date),
+                    y: .value("Value", only.value)
+                )
+                .foregroundStyle(Theme.accent)
+                .symbolSize(90)
+            }
+            .chartXAxis(.hidden)
+            .chartYAxis(.hidden)
         }
     }
 }
