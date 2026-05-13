@@ -256,6 +256,13 @@ struct RoutineDetailView: View {
         return bestByKey.values.sorted()
     }
 
+    /// Exercise name keys that already have at least one LoggedExercise.
+    /// The BW toggle is disabled for these so the user can't retro-flip the
+    /// type and silently mix metrics across past and future logs.
+    private var lockedBodyweightKeys: Set<String> {
+        Set(allLogs.map { $0.exerciseName.normalizedExerciseKey })
+    }
+
     var body: some View {
         List {
             Section {
@@ -286,6 +293,7 @@ struct RoutineDetailView: View {
                         day: day,
                         isNext: day.id == routine.nextDay?.id,
                         knownExerciseNames: knownExerciseNames,
+                        lockedBodyweightKeys: lockedBodyweightKeys,
                         isExpanded: Binding(
                             get: { expandedDayID == day.persistentModelID },
                             set: { expanded in
@@ -384,6 +392,7 @@ private struct DayDisclosure: View {
     @Bindable var day: RoutineDay
     let isNext: Bool
     let knownExerciseNames: [String]
+    let lockedBodyweightKeys: Set<String>
     @Binding var isExpanded: Bool
 
     @State private var newExerciseName: String = ""
@@ -407,7 +416,11 @@ private struct DayDisclosure: View {
         DisclosureGroup(isExpanded: $isExpanded) {
             VStack(spacing: 6) {
                 ForEach(day.orderedExercises) { ex in
-                    InlineExerciseRow(exercise: ex, onDelete: { delete(ex) })
+                    InlineExerciseRow(
+                        exercise: ex,
+                        isTypeLocked: lockedBodyweightKeys.contains(ex.name.normalizedExerciseKey),
+                        onDelete: { delete(ex) }
+                    )
                 }
 
                 HStack(spacing: 8) {
@@ -517,6 +530,7 @@ private struct DayDisclosure: View {
 
 private struct InlineExerciseRow: View {
     @Bindable var exercise: Exercise
+    let isTypeLocked: Bool
     let onDelete: () -> Void
 
     var body: some View {
@@ -527,26 +541,36 @@ private struct InlineExerciseRow: View {
             TextField("Exercise name", text: $exercise.name)
                 .textFieldStyle(.plain)
             Button {
+                guard !isTypeLocked else { return }
                 exercise.isBodyweight.toggle()
             } label: {
-                Text("BW")
-                    .font(.caption2.bold())
-                    .tracking(0.4)
-                    .foregroundStyle(exercise.isBodyweight ? .white : .secondary)
-                    .padding(.horizontal, 8)
-                    .padding(.vertical, 3)
-                    .background(
-                        Capsule()
-                            .fill(exercise.isBodyweight ? Theme.accent : Color.clear)
+                HStack(spacing: 3) {
+                    if isTypeLocked {
+                        Image(systemName: "lock.fill")
+                            .font(.caption2)
+                    }
+                    Text("BW")
+                        .font(.caption2.bold())
+                        .tracking(0.4)
+                }
+                .foregroundStyle(exercise.isBodyweight ? .white : .secondary)
+                .padding(.horizontal, 8)
+                .padding(.vertical, 3)
+                .background(
+                    Capsule()
+                        .fill(exercise.isBodyweight ? Theme.accent : Color.clear)
+                )
+                .overlay(
+                    Capsule().strokeBorder(
+                        exercise.isBodyweight ? Color.clear : Color.secondary.opacity(0.4),
+                        lineWidth: 1
                     )
-                    .overlay(
-                        Capsule().strokeBorder(
-                            exercise.isBodyweight ? Color.clear : Color.secondary.opacity(0.4),
-                            lineWidth: 1
-                        )
-                    )
+                )
+                .opacity(isTypeLocked ? 0.65 : 1)
             }
             .buttonStyle(.plain)
+            .disabled(isTypeLocked)
+            .help(isTypeLocked ? "Locked — this exercise already has logged history." : "")
             Button(role: .destructive, action: onDelete) {
                 Image(systemName: "minus.circle.fill")
                     .foregroundStyle(.secondary)
