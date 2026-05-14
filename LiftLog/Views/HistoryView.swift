@@ -432,7 +432,7 @@ private struct SessionSummaryCard: View {
                 Spacer()
                 HStack(spacing: 8) {
                     NavigationLink {
-                        EditSessionView(session: session)
+                        EditSessionView(sessionID: session.persistentModelID)
                     } label: {
                         Image(systemName: "pencil")
                             .font(.subheadline.weight(.semibold))

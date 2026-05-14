@@ -1,20 +1,76 @@
 import SwiftUI
 import SwiftData
 
-/// Editor for a previously-ended workout session. Mirrors the Today
-/// session UI (set rows, swipe-to-delete, add set, add exercise) but
-/// targets an existing `WorkoutSession` instead of creating a new one.
-/// All changes save reactively via SwiftData; stats / history / charts
-/// pick them up automatically.
+/// Transactional editor for a previously-ended workout session.
+/// All edits happen against a dedicated `ModelContext` (autosave OFF),
+/// so:
+///  - Tap **Save** → the scoped context flushes to the persistent
+///    store; Stats, History, and charts update.
+///  - Tap **back** (or swipe back) → the scoped context is discarded
+///    and no edits persist.
 struct EditSessionView: View {
+    @Environment(\.modelContext) private var envContext
+    @Environment(\.dismiss) private var dismiss
+    @EnvironmentObject private var unitPref: UnitPreference
+
+    let sessionID: PersistentIdentifier
+
+    @State private var editContext: ModelContext?
+    @State private var editableSession: WorkoutSession?
+
+    @State private var showingAddExercise = false
+    @State private var showingDiscardConfirm = false
+    @FocusState private var focusedField: SetField?
+
+    var body: some View {
+        Group {
+            if let session = editableSession, let ctx = editContext {
+                EditorScreen(
+                    session: session,
+                    focusedField: $focusedField,
+                    showingAddExercise: $showingAddExercise,
+                    showingDiscardConfirm: $showingDiscardConfirm,
+                    onSave: { saveAndDismiss(ctx) },
+                    onDiscardConfirmed: { dismiss() }
+                )
+                .environment(\.modelContext, ctx)
+            } else {
+                Color.clear
+                    .onAppear { setupContext() }
+            }
+        }
+    }
+
+    private func setupContext() {
+        let ctx = ModelContext(envContext.container)
+        ctx.autosaveEnabled = false
+        editContext = ctx
+        editableSession = ctx.model(for: sessionID) as? WorkoutSession
+    }
+
+    private func saveAndDismiss(_ ctx: ModelContext) {
+        do {
+            try ctx.save()
+        } catch {
+            print("[LiftLog] edit save failed: \(error)")
+        }
+        dismiss()
+    }
+}
+
+// MARK: - Editor screen (always has a valid session + scoped context)
+
+private struct EditorScreen: View {
     @Environment(\.modelContext) private var context
     @Environment(\.dismiss) private var dismiss
     @EnvironmentObject private var unitPref: UnitPreference
 
     @Bindable var session: WorkoutSession
-
-    @State private var showingAddExercise = false
-    @FocusState private var focusedField: SetField?
+    @FocusState.Binding var focusedField: SetField?
+    @Binding var showingAddExercise: Bool
+    @Binding var showingDiscardConfirm: Bool
+    let onSave: () -> Void
+    let onDiscardConfirmed: () -> Void
 
     private var loggedExercises: [LoggedExercise] {
         session.loggedExercises.sorted { $0.order < $1.order }
@@ -24,7 +80,10 @@ struct EditSessionView: View {
         Set(loggedExercises.map { $0.exerciseName.normalizedExerciseKey })
     }
 
-    // Field navigation across all editable set fields in this session.
+    private var hasUnsavedChanges: Bool {
+        context.hasChanges
+    }
+
     private var allFieldsInOrder: [SetField] {
         var fields: [SetField] = []
         for log in loggedExercises {
@@ -74,6 +133,10 @@ struct EditSessionView: View {
                     Text(session.date.formatted(date: .complete, time: .omitted))
                         .font(.caption)
                         .foregroundStyle(.secondary)
+                    Text("Changes save only when you tap Save.")
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                        .padding(.top, 2)
                 }
                 .frame(maxWidth: .infinity, alignment: .leading)
                 .padding(.horizontal, 4)
@@ -82,7 +145,7 @@ struct EditSessionView: View {
 
                 ForEach(loggedExercises) { log in
                     SwipeableRow(
-                        onDelete: { delete(log) },
+                        onDelete: { context.delete(log) },
                         allowsFullSwipeCommit: false
                     ) {
                         EditableExerciseCard(log: log, focus: $focusedField, unit: unitPref.unit)
@@ -116,10 +179,26 @@ struct EditSessionView: View {
         .scrollDismissesKeyboard(.interactively)
         .navigationTitle("Edit session")
         .navigationBarTitleDisplayMode(.inline)
+        .navigationBarBackButtonHidden(true)
         .toolbar {
+            ToolbarItem(placement: .cancellationAction) {
+                Button {
+                    if hasUnsavedChanges {
+                        showingDiscardConfirm = true
+                    } else {
+                        onDiscardConfirmed()
+                    }
+                } label: {
+                    HStack(spacing: 2) {
+                        Image(systemName: "chevron.left")
+                        Text("Back")
+                    }
+                }
+            }
             ToolbarItem(placement: .confirmationAction) {
-                Button("Done") { dismiss() }
+                Button("Save") { onSave() }
                     .fontWeight(.semibold)
+                    .disabled(!hasUnsavedChanges)
             }
             ToolbarItem(placement: .keyboard) {
                 HStack(spacing: 16) {
@@ -137,12 +216,20 @@ struct EditSessionView: View {
 
                     Spacer()
 
-                    Button("Done") {
-                        focusedField = nil
-                    }
-                    .fontWeight(.semibold)
+                    Button("Done") { focusedField = nil }
+                        .fontWeight(.semibold)
                 }
             }
+        }
+        .confirmationDialog(
+            "Discard changes?",
+            isPresented: $showingDiscardConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Discard", role: .destructive) { onDiscardConfirmed() }
+            Button("Keep editing", role: .cancel) {}
+        } message: {
+            Text("Edits you made in this view won't be saved.")
         }
         .sheet(isPresented: $showingAddExercise) {
             AddExerciseSheet(excludedKeys: existingKeys) { name, isBodyweight in
@@ -150,11 +237,6 @@ struct EditSessionView: View {
             }
             .presentationDetents([.medium, .large])
         }
-    }
-
-    private func delete(_ log: LoggedExercise) {
-        context.delete(log)
-        save("deleteLog")
     }
 
     private func addExercise(name: String, isBodyweight: Bool) {
@@ -173,15 +255,6 @@ struct EditSessionView: View {
         context.insert(log)
         log.session = session
         session.loggedExercises.append(log)
-        save("addExercise")
-    }
-
-    private func save(_ source: String) {
-        do {
-            try context.save()
-        } catch {
-            print("[LiftLog] edit save failed in \(source): \(error)")
-        }
     }
 }
 
@@ -211,7 +284,7 @@ private struct EditableExerciseCard: View {
 
             VStack(spacing: 6) {
                 ForEach(log.orderedSets) { entry in
-                    SwipeableRow(onDelete: { delete(entry) }) {
+                    SwipeableRow(onDelete: { context.delete(entry) }) {
                         SetRowView(
                             entry: entry,
                             isBodyweight: log.effectiveIsBodyweight,
@@ -241,19 +314,6 @@ private struct EditableExerciseCard: View {
         context.insert(entry)
         entry.loggedExercise = log
         log.sets.append(entry)
-        save("addSet")
-    }
-
-    private func delete(_ entry: SetEntry) {
-        context.delete(entry)
-        save("deleteSet")
-    }
-
-    private func save(_ source: String) {
-        do {
-            try context.save()
-        } catch {
-            print("[LiftLog] edit card save failed in \(source): \(error)")
-        }
     }
 }
+
