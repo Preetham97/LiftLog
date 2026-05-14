@@ -145,6 +145,24 @@ struct TodaySessionView: View {
         }
     }
 
+    /// Reorders the visible exercises and persists the new `order` on the
+    /// underlying Exercise template and LoggedExercise (if one exists).
+    private func moveExercises(from source: IndexSet, to destination: Int) {
+        var items = visibleExercises
+        items.move(fromOffsets: source, toOffset: destination)
+        for (idx, item) in items.enumerated() {
+            if let ex = day.exercises.first(where: { $0.name.normalizedExerciseKey == item.id }) {
+                ex.order = idx
+            }
+            if let log = session?.loggedExercises.first(where: { $0.exerciseName.normalizedExerciseKey == item.id }) {
+                log.order = idx
+            }
+        }
+        do { try context.save() } catch {
+            print("[LiftLog] moveExercises failed: \(error)")
+        }
+    }
+
     private func skip(_ item: DisplayedExerciseItem) {
         let s = session ?? {
             let new = WorkoutSession(date: .now, dayName: day.name, routineName: routine.name)
@@ -253,25 +271,42 @@ struct TodaySessionView: View {
     }
 
     var body: some View {
-        ScrollView {
-            VStack(spacing: 10) {
+        List {
+            Section {
                 HeroHeader(routine: routine, day: day)
+                    .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 4, trailing: 16))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+            }
 
+            Section {
                 ForEach(visibleExercises, id: \.id) { item in
-                    SwipeableRow(onDelete: { skip(item) }, allowsFullSwipeCommit: false) {
-                        ExerciseLogCard(
-                            exerciseName: item.name,
-                            isBodyweight: item.isBodyweight,
-                            order: item.order,
-                            session: $session,
-                            routine: routine,
-                            day: day,
-                            onSkip: { skip(item) },
-                            focus: $focusedField
-                        )
+                    ExerciseLogCard(
+                        exerciseName: item.name,
+                        isBodyweight: item.isBodyweight,
+                        order: item.order,
+                        session: $session,
+                        routine: routine,
+                        day: day,
+                        onSkip: { skip(item) },
+                        focus: $focusedField
+                    )
+                    .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 10, trailing: 16))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
+                    .swipeActions(edge: .trailing, allowsFullSwipe: false) {
+                        Button {
+                            skip(item)
+                        } label: {
+                            Label("Skip", systemImage: "trash")
+                        }
+                        .tint(.red)
                     }
                 }
+                .onMove(perform: moveExercises)
+            }
 
+            Section {
                 Button {
                     showingAddExercise = true
                 } label: {
@@ -289,85 +324,93 @@ struct TodaySessionView: View {
                     )
                 }
                 .buttonStyle(.plain)
-                .padding(.top, 4)
+                .listRowInsets(EdgeInsets(top: 4, leading: 16, bottom: 8, trailing: 16))
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
+            }
 
-                if !skippedItems.isEmpty {
-                    VStack(alignment: .leading, spacing: 6) {
-                        Button {
-                            withAnimation(.easeInOut(duration: 0.18)) {
-                                skippedExpanded.toggle()
-                            }
-                        } label: {
-                            HStack(spacing: 6) {
-                                Text("SKIPPED TODAY")
-                                    .font(.caption2.bold())
-                                    .tracking(0.6)
-                                    .foregroundStyle(.secondary)
-                                Text("· \(skippedItems.count)")
-                                    .font(.caption2)
-                                    .foregroundStyle(.tertiary)
-                                Spacer()
-                                Image(systemName: skippedExpanded ? "chevron.up" : "chevron.down")
-                                    .font(.caption.bold())
-                                    .foregroundStyle(.tertiary)
-                            }
-                            .padding(.horizontal, 4)
-                            .contentShape(Rectangle())
+            if !skippedItems.isEmpty {
+                Section {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.18)) {
+                            skippedExpanded.toggle()
                         }
-                        .buttonStyle(.plain)
+                    } label: {
+                        HStack(spacing: 6) {
+                            Text("SKIPPED TODAY")
+                                .font(.caption2.bold())
+                                .tracking(0.6)
+                                .foregroundStyle(.secondary)
+                            Text("· \(skippedItems.count)")
+                                .font(.caption2)
+                                .foregroundStyle(.tertiary)
+                            Spacer()
+                            Image(systemName: skippedExpanded ? "chevron.up" : "chevron.down")
+                                .font(.caption.bold())
+                                .foregroundStyle(.tertiary)
+                        }
+                        .padding(.horizontal, 4)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 4, trailing: 16))
+                    .listRowBackground(Color.clear)
+                    .listRowSeparator(.hidden)
 
-                        if skippedExpanded {
-                            VStack(spacing: 0) {
-                                ForEach(Array(skippedItems.enumerated()), id: \.element.key) { idx, item in
-                                    HStack(spacing: 8) {
-                                        Button {
-                                            restoreSkipped(key: item.key)
-                                        } label: {
-                                            HStack(spacing: 10) {
-                                                Image(systemName: "arrow.uturn.backward")
-                                                    .font(.caption.weight(.semibold))
-                                                    .foregroundStyle(Theme.accent)
-                                                Text(item.name)
-                                                    .font(.subheadline)
-                                                    .foregroundStyle(.primary)
-                                                Spacer(minLength: 4)
-                                                Text("Restore")
-                                                    .font(.caption.weight(.semibold))
-                                                    .foregroundStyle(Theme.accent)
-                                            }
-                                            .contentShape(Rectangle())
+                    if skippedExpanded {
+                        VStack(spacing: 0) {
+                            ForEach(Array(skippedItems.enumerated()), id: \.element.key) { idx, item in
+                                HStack(spacing: 8) {
+                                    Button {
+                                        restoreSkipped(key: item.key)
+                                    } label: {
+                                        HStack(spacing: 10) {
+                                            Image(systemName: "arrow.uturn.backward")
+                                                .font(.caption.weight(.semibold))
+                                                .foregroundStyle(Theme.accent)
+                                            Text(item.name)
+                                                .font(.subheadline)
+                                                .foregroundStyle(.primary)
+                                            Spacer(minLength: 4)
+                                            Text("Restore")
+                                                .font(.caption.weight(.semibold))
+                                                .foregroundStyle(Theme.accent)
                                         }
-                                        .buttonStyle(.plain)
+                                        .contentShape(Rectangle())
+                                    }
+                                    .buttonStyle(.plain)
 
-                                        Button {
-                                            skippedPendingDelete = item
-                                        } label: {
-                                            Image(systemName: "trash")
-                                                .font(.footnote)
-                                                .foregroundStyle(.secondary)
-                                                .frame(width: 28, height: 28)
-                                                .background(Color(.tertiarySystemGroupedBackground))
-                                                .clipShape(Circle())
-                                        }
-                                        .buttonStyle(.plain)
+                                    Button {
+                                        skippedPendingDelete = item
+                                    } label: {
+                                        Image(systemName: "trash")
+                                            .font(.footnote)
+                                            .foregroundStyle(.secondary)
+                                            .frame(width: 28, height: 28)
+                                            .background(Color(.tertiarySystemGroupedBackground))
+                                            .clipShape(Circle())
                                     }
-                                    .padding(.vertical, 8)
-                                    .padding(.horizontal, 14)
-                                    if idx < skippedItems.count - 1 {
-                                        Divider().padding(.leading, 14)
-                                    }
+                                    .buttonStyle(.plain)
+                                }
+                                .padding(.vertical, 8)
+                                .padding(.horizontal, 14)
+                                if idx < skippedItems.count - 1 {
+                                    Divider().padding(.leading, 14)
                                 }
                             }
-                            .background(
-                                RoundedRectangle(cornerRadius: Theme.cardCorner, style: .continuous)
-                                    .fill(Color(.secondarySystemGroupedBackground))
-                            )
-                            .transition(.opacity)
                         }
+                        .background(
+                            RoundedRectangle(cornerRadius: Theme.cardCorner, style: .continuous)
+                                .fill(Color(.secondarySystemGroupedBackground))
+                        )
+                        .listRowInsets(EdgeInsets(top: 0, leading: 16, bottom: 0, trailing: 16))
+                        .listRowBackground(Color.clear)
+                        .listRowSeparator(.hidden)
                     }
-                    .padding(.top, 8)
                 }
+            }
 
+            Section {
                 Button {
                     showingFinishConfirm = true
                 } label: {
@@ -382,13 +425,13 @@ struct TodaySessionView: View {
                     .background(Color(.secondarySystemGroupedBackground))
                     .clipShape(RoundedRectangle(cornerRadius: Theme.pillCorner, style: .continuous))
                 }
-                .padding(.top, 8)
-
-                Spacer(minLength: 120)
+                .listRowInsets(EdgeInsets(top: 8, leading: 16, bottom: 80, trailing: 16))
+                .listRowBackground(Color.clear)
+                .listRowSeparator(.hidden)
             }
-            .padding(.horizontal, 16)
-            .padding(.top, 4)
         }
+        .listStyle(.plain)
+        .scrollContentBackground(.hidden)
         .scrollDismissesKeyboard(.interactively)
         .onAppear {
             restoreInProgressSession()
