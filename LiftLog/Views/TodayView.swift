@@ -441,6 +441,9 @@ struct TodaySessionView: View {
             restoreInProgressSession()
         }
         .toolbar {
+            ToolbarItem(placement: .topBarTrailing) {
+                EditButton()
+            }
             ToolbarItem(placement: .keyboard) {
                 HStack(spacing: 16) {
                     Button {
