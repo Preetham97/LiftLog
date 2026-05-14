@@ -308,7 +308,7 @@ struct DaySessionsView: View {
         let cal = Calendar.current
         return allSessions
             .filter { $0.isCompleted && cal.isDate($0.date, inSameDayAs: day) }
-            .sorted { $0.date < $1.date }
+            .sorted { $0.date > $1.date }
     }
 
     var body: some View {
