@@ -7,9 +7,10 @@ struct ShareCardView: View {
         let id: String  // normalized key
         let name: String
         let isBodyweight: Bool
-        let topSetText: String     // e.g. "100 lbs × 8" or "25 reps"
-        let metricLabel: String    // "e1RM" or "top reps"
-        let metricValue: String    // e.g. "120 lbs" or "25 reps"
+        /// All sets of this exercise from the session, in order, pre-formatted
+        /// for display. e.g. ["100 lbs × 8", "100 lbs × 7", "95 lbs × 6"] or
+        /// ["25 reps", "20 reps"] for bodyweight.
+        let setLines: [String]
         let trend: Double
         let format: MetricFormat
     }
@@ -93,7 +94,7 @@ struct ShareCardView: View {
     private var exerciseList: some View {
         VStack(spacing: 10) {
             ForEach(Array(exercises.enumerated()), id: \.element.id) { idx, ex in
-                HStack(alignment: .center, spacing: 12) {
+                HStack(alignment: .top, spacing: 12) {
                     Text("\(idx + 1)")
                         .font(.system(size: 11, weight: .bold).monospacedDigit())
                         .frame(width: 22, height: 22)
@@ -101,14 +102,24 @@ struct ShareCardView: View {
                         .foregroundStyle(Theme.accent)
                         .clipShape(Circle())
 
-                    VStack(alignment: .leading, spacing: 2) {
+                    VStack(alignment: .leading, spacing: 4) {
                         Text(ex.name)
                             .font(.system(size: 14, weight: .semibold))
                             .foregroundStyle(.primary)
                             .lineLimit(2)
-                        Text(ex.topSetText)
-                            .font(.system(size: 12, weight: .medium).monospacedDigit())
-                            .foregroundStyle(.secondary)
+                        VStack(alignment: .leading, spacing: 2) {
+                            ForEach(Array(ex.setLines.enumerated()), id: \.offset) { setIdx, line in
+                                HStack(spacing: 6) {
+                                    Text("\(setIdx + 1).")
+                                        .font(.system(size: 11, weight: .medium).monospacedDigit())
+                                        .foregroundStyle(.tertiary)
+                                        .frame(width: 14, alignment: .leading)
+                                    Text(line)
+                                        .font(.system(size: 12, weight: .medium).monospacedDigit())
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                        }
                     }
 
                     Spacer(minLength: 8)

@@ -345,18 +345,12 @@ private struct SessionSummaryCard: View {
         let summaries = loggedExercises.map { log -> ShareCardView.ExerciseSummary in
             let isBW = log.effectiveIsBodyweight
             let valid = log.validSets
-            let topSet: SetEntry? = isBW
-                ? valid.max { $0.reps < $1.reps }
-                : valid.max { $0.weight < $1.weight }
-            let topSetText: String
-            if let t = topSet {
+            let setLines: [String] = valid.map { s in
                 if isBW {
-                    topSetText = "\(t.reps) reps"
+                    return "\(s.reps) reps"
                 } else {
-                    topSetText = "\(t.weight.formattedWeight(unit: unit)) × \(t.reps)"
+                    return "\(s.weight.formattedWeight(unit: unit)) × \(s.reps)"
                 }
-            } else {
-                topSetText = "—"
             }
             let topValue: Double
             if isBW {
@@ -371,9 +365,7 @@ private struct SessionSummaryCard: View {
                 id: log.exerciseName.normalizedExerciseKey,
                 name: log.exerciseName,
                 isBodyweight: isBW,
-                topSetText: topSetText,
-                metricLabel: isBW ? "TOP REPS" : "e1RM",
-                metricValue: format.format(topValue),
+                setLines: setLines,
                 trend: trend,
                 format: format
             )
