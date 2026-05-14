@@ -183,7 +183,7 @@ struct StatsView: View {
                                         RoundedRectangle(cornerRadius: Theme.cardCorner, style: .continuous)
                                             .fill(Color(.secondarySystemGroupedBackground))
                                     )
-                                    .transition(.opacity.combined(with: .move(edge: .top)))
+                                    .transition(.opacity)
                                 }
                             }
                         }
