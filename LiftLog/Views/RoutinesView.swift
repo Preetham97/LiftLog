@@ -241,6 +241,7 @@ struct RoutineDetailView: View {
 
     @State private var expandedDayID: PersistentIdentifier?
     @State private var showingDeleteConfirm = false
+    @State private var dayPendingDelete: RoutineDay?
 
     private var knownExerciseNames: [String] {
         var bestByKey: [String: String] = [:]
@@ -313,7 +314,7 @@ struct RoutineDetailView: View {
                     }
                     .swipeActions(edge: .trailing) {
                         Button(role: .destructive) {
-                            delete(day)
+                            dayPendingDelete = day
                         } label: {
                             Label("Delete", systemImage: "trash")
                         }
@@ -350,6 +351,25 @@ struct RoutineDetailView: View {
             Button("Cancel", role: .cancel) {}
         } message: {
             Text("Your logged sessions and history won't be touched — only this routine's days and exercise list go away.")
+        }
+        .confirmationDialog(
+            "Delete \(dayPendingDelete?.name.isEmpty == false ? dayPendingDelete!.name : "this day")?",
+            isPresented: Binding(
+                get: { dayPendingDelete != nil },
+                set: { if !$0 { dayPendingDelete = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: dayPendingDelete
+        ) { day in
+            Button("Delete day", role: .destructive) {
+                delete(day)
+                dayPendingDelete = nil
+            }
+            Button("Cancel", role: .cancel) {
+                dayPendingDelete = nil
+            }
+        } message: { _ in
+            Text("This removes the day and its exercise template from the routine. Past logged sessions for this day name stay in your history.")
         }
     }
 
