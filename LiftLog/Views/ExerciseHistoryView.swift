@@ -19,6 +19,7 @@ struct ExerciseHistoryView: View {
                     && log.session?.isCompleted == true
                     && log.session?.date != nil
                     && log.hasAnyValidSet
+                    && !log.isSkippedBySession
             }
             .sorted { ($0.session?.date ?? .distantPast) > ($1.session?.date ?? .distantPast) }
     }

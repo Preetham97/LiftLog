@@ -37,7 +37,7 @@ struct HistoryView: View {
 
     private var loggedSessions: [WorkoutSession] {
         sessions.filter { s in
-            s.isCompleted && s.loggedExercises.contains { $0.hasAnyValidSet }
+            s.isCompleted && s.loggedExercises.contains { $0.hasAnyValidSet && !$0.isSkippedBySession }
         }
     }
 
@@ -337,7 +337,7 @@ private struct SessionSummaryCard: View {
 
     private var loggedExercises: [LoggedExercise] {
         session.loggedExercises
-            .filter { $0.hasAnyValidSet }
+            .filter { $0.hasAnyValidSet && !$0.isSkippedBySession }
             .sorted { $0.order < $1.order }
     }
 
@@ -391,6 +391,7 @@ private struct SessionSummaryCard: View {
                 && l.session?.isCompleted == true
                 && l.session?.persistentModelID != currentID
                 && l.hasAnyValidSet
+                && !l.isSkippedBySession
                 && (l.session?.date ?? .distantPast) < (log.session?.date ?? .distantPast)
         }
         guard let prevLog = earlier.max(by: { ($0.session?.date ?? .distantPast) < ($1.session?.date ?? .distantPast) }) else {
@@ -485,6 +486,7 @@ private struct ReadOnlyExerciseBlock: View {
                 l.exerciseName.normalizedExerciseKey == key
                     && l.session?.isCompleted == true
                     && l.hasAnyValidSet
+                    && !l.isSkippedBySession
             }
             .compactMap { l -> (LoggedExercise, Date, Double)? in
                 guard let date = l.session?.date else { return nil }

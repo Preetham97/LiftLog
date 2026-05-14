@@ -181,10 +181,9 @@ struct TodaySessionView: View {
             session = new
             return new
         }()
-        // Remove any in-progress log for this exercise.
-        if let existing = s.loggedExercises.first(where: { $0.exerciseName.normalizedExerciseKey == item.id }) {
-            context.delete(existing)
-        }
+        // Don't delete the LoggedExercise here — Restore relies on it to
+        // bring one-off exercises back into the active list. The skip key
+        // alone hides the card; the underlying log (if any) is left intact.
         if !s.skippedExerciseKeys.contains(item.id) {
             s.skippedExerciseKeys = s.skippedExerciseKeys + [item.id]
         }
@@ -545,7 +544,7 @@ struct TodaySessionView: View {
 
     private func resetSessionForDayChange() {
         if let s = session {
-            let hasRealWork = s.loggedExercises.contains { $0.hasAnyValidSet }
+            let hasRealWork = s.loggedExercises.contains { $0.hasAnyValidSet && !$0.isSkippedBySession }
             if hasRealWork {
                 s.isCompleted = true
             } else {
@@ -560,7 +559,7 @@ struct TodaySessionView: View {
 
     private func finishSession(advance: Bool) {
         if let s = session {
-            let hasAnyLoggedWork = s.loggedExercises.contains { $0.hasAnyValidSet }
+            let hasAnyLoggedWork = s.loggedExercises.contains { $0.hasAnyValidSet && !$0.isSkippedBySession }
             if hasAnyLoggedWork {
                 s.isCompleted = true
             } else {
@@ -651,6 +650,7 @@ private struct ExerciseLogCard: View {
                 && log.session?.isCompleted == true
                 && log.session !== session
                 && log.hasAnyValidSet
+                && !log.isSkippedBySession
         }
     }
 

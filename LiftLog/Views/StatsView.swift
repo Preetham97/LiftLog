@@ -9,7 +9,9 @@ struct StatsView: View {
 
     private var loggedExercises: [LoggedExercise] {
         allLoggedExercises.filter { log in
-            log.session?.isCompleted == true && log.hasAnyValidSet
+            log.session?.isCompleted == true
+                && log.hasAnyValidSet
+                && !log.isSkippedBySession
         }
     }
 
@@ -83,7 +85,7 @@ struct StatsView: View {
         guard let s = latestSession else { return [] }
         return Set(
             s.loggedExercises
-                .filter { $0.hasAnyValidSet }
+                .filter { $0.hasAnyValidSet && !$0.isSkippedBySession }
                 .map { $0.exerciseName.normalizedExerciseKey }
         )
     }
@@ -447,6 +449,7 @@ struct ExerciseProgressView: View {
             log.exerciseName.normalizedExerciseKey == key
                 && log.session?.isCompleted == true
                 && log.hasAnyValidSet
+                && !log.isSkippedBySession
         }
     }
 

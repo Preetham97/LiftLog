@@ -133,6 +133,14 @@ final class LoggedExercise {
         sets.contains { setIsValid($0) }
     }
 
+    /// True if this log's owning session has the exercise name flagged as
+    /// skipped. Stats / history / charts all exclude these so a skipped
+    /// session entry never bleeds into trends.
+    var isSkippedBySession: Bool {
+        guard let keys = session?.skippedExerciseKeys else { return false }
+        return keys.contains(exerciseName.normalizedExerciseKey)
+    }
+
     var validSets: [SetEntry] {
         orderedSets.filter { setIsValid($0) }
     }
