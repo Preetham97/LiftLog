@@ -23,9 +23,13 @@ struct StatsView: View {
         let lastSessionDate: Date
         let lastActivityAt: Date
         let points: [SessionPoint]
+        /// Concrete top set of the most recent session, formatted with the
+        /// user's current weight unit. e.g. "100 lbs × 8" or "25 reps".
+        let topSetText: String
     }
 
     private var summaries: [ExerciseSummary] {
+        let unit = unitPref.unit
         let grouped = Dictionary(grouping: loggedExercises, by: { $0.exerciseName.normalizedExerciseKey })
         return grouped.compactMap { key, logs in
             // Pick the most recent variant of the name as the display string.
@@ -61,6 +65,19 @@ struct StatsView: View {
 
             let points = dated.map { SessionPoint(date: $0.0, topValue: $0.1, totalValue: $0.2) }
 
+            // Top set notation off the most recent log.
+            let topSetText: String = {
+                guard let log = mostRecent else { return "—" }
+                let valid = log.validSets
+                if log.effectiveIsBodyweight {
+                    let top = valid.max { $0.reps < $1.reps }
+                    return top.map { "\($0.reps) reps" } ?? "—"
+                } else {
+                    let top = valid.max { $0.weight < $1.weight }
+                    return top.map { "\($0.weight.formattedWeight(unit: unit)) × \($0.reps)" } ?? "—"
+                }
+            }()
+
             return ExerciseSummary(
                 id: key,
                 name: displayName,
@@ -70,7 +87,8 @@ struct StatsView: View {
                 trend: trend,
                 lastSessionDate: last.0,
                 lastActivityAt: latestSetAt,
-                points: points
+                points: points,
+                topSetText: topSetText
             )
         }.sorted { $0.lastActivityAt > $1.lastActivityAt }
     }
@@ -291,9 +309,7 @@ private struct ExerciseChartCard: View {
             .chartXAxis(.hidden)
             .chartYAxis(.hidden)
 
-            HStack(alignment: .firstTextBaseline, spacing: 6) {
-                Text(MetricFormat.from(summary: summary, unit: unit).format(summary.latestValue))
-                    .font(.subheadline.bold().monospacedDigit())
+            HStack {
                 Spacer()
                 TrendBadge(delta: summary.trend, format: .from(summary: summary, unit: unit))
             }
@@ -318,13 +334,9 @@ private struct ExerciseStatRow: View {
                     .foregroundStyle(.secondary)
             }
             Spacer()
-            VStack(alignment: .trailing, spacing: 2) {
-                Text(fmt.format(summary.latestValue))
-                    .font(.subheadline.bold().monospacedDigit())
-                Text(fmt.shortLabel)
-                    .font(.caption2)
-                    .foregroundStyle(.secondary)
-            }
+            Text(summary.topSetText)
+                .font(.subheadline.bold().monospacedDigit())
+                .foregroundStyle(.secondary)
             TrendBadge(delta: summary.trend, format: fmt)
             Image(systemName: "chevron.right")
                 .font(.caption.bold())

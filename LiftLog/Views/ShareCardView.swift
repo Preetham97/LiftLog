@@ -113,18 +113,7 @@ struct ShareCardView: View {
 
                     Spacer(minLength: 8)
 
-                    VStack(alignment: .trailing, spacing: 4) {
-                        HStack(spacing: 4) {
-                            Text(ex.metricValue)
-                                .font(.system(size: 13, weight: .bold).monospacedDigit())
-                                .foregroundStyle(.primary)
-                            Text(ex.metricLabel)
-                                .font(.system(size: 9, weight: .heavy))
-                                .tracking(0.5)
-                                .foregroundStyle(.tertiary)
-                        }
-                        TrendBadge(delta: ex.trend, format: ex.format)
-                    }
+                    TrendBadge(delta: ex.trend, format: ex.format)
                 }
                 .padding(.vertical, 10)
                 .padding(.horizontal, 12)
