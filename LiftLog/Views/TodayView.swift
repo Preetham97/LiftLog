@@ -122,7 +122,9 @@ struct TodaySessionView: View {
 
     private func restoreSkipped(key: String) {
         guard let s = session else { return }
-        s.skippedExerciseKeys.removeAll { $0 == key }
+        // Re-assign the whole array so SwiftData's change tracker fires
+        // (mutating in place with .removeAll doesn't trigger the observer).
+        s.skippedExerciseKeys = s.skippedExerciseKeys.filter { $0 != key }
         do { try context.save() } catch {
             print("[LiftLog] restoreSkipped failed: \(error)")
         }
@@ -138,7 +140,7 @@ struct TodaySessionView: View {
             context.delete(template)
         }
         if let s = session {
-            s.skippedExerciseKeys.removeAll { $0 == key }
+            s.skippedExerciseKeys = s.skippedExerciseKeys.filter { $0 != key }
         }
         do { try context.save() } catch {
             print("[LiftLog] deleteSkipped failed: \(error)")
@@ -175,7 +177,7 @@ struct TodaySessionView: View {
             context.delete(existing)
         }
         if !s.skippedExerciseKeys.contains(item.id) {
-            s.skippedExerciseKeys.append(item.id)
+            s.skippedExerciseKeys = s.skippedExerciseKeys + [item.id]
         }
         do { try context.save() } catch {
             print("[LiftLog] skip exercise failed: \(error)")
@@ -195,7 +197,7 @@ struct TodaySessionView: View {
         }()
 
         // If it's currently in the skipped list, un-skip it.
-        s.skippedExerciseKeys.removeAll { $0 == key }
+        s.skippedExerciseKeys = s.skippedExerciseKeys.filter { $0 != key }
 
         // If a log for this exercise already exists in the session, do nothing.
         let already = s.loggedExercises.contains { $0.exerciseName.normalizedExerciseKey == key }
