@@ -66,6 +66,8 @@ struct TodaySessionView: View {
     @State private var session: WorkoutSession?
     @State private var showingFinishConfirm = false
     @State private var showingAddExercise = false
+    @State private var skippedExpanded = true
+    @State private var skippedPendingDelete: (key: String, name: String)?
     @FocusState private var focusedField: SetField?
 
     struct DisplayedExerciseItem: Identifiable {
@@ -123,6 +125,23 @@ struct TodaySessionView: View {
         s.skippedExerciseKeys.removeAll { $0 == key }
         do { try context.save() } catch {
             print("[LiftLog] restoreSkipped failed: \(error)")
+        }
+    }
+
+    /// Permanently removes a skipped exercise. If it's part of the routine
+    /// template, the Exercise is deleted from the day so it won't show up
+    /// in future sessions either. For one-offs (no template), this just
+    /// clears the skip marker. Either way the entry vanishes from the
+    /// "Skipped today" list.
+    private func deleteSkipped(key: String) {
+        if let template = day.orderedExercises.first(where: { $0.name.normalizedExerciseKey == key }) {
+            context.delete(template)
+        }
+        if let s = session {
+            s.skippedExerciseKeys.removeAll { $0 == key }
+        }
+        do { try context.save() } catch {
+            print("[LiftLog] deleteSkipped failed: \(error)")
         }
     }
 
@@ -274,41 +293,77 @@ struct TodaySessionView: View {
 
                 if !skippedItems.isEmpty {
                     VStack(alignment: .leading, spacing: 6) {
-                        Text("SKIPPED TODAY")
-                            .font(.caption2.bold())
-                            .tracking(0.6)
-                            .foregroundStyle(.secondary)
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.18)) {
+                                skippedExpanded.toggle()
+                            }
+                        } label: {
+                            HStack(spacing: 6) {
+                                Text("SKIPPED TODAY")
+                                    .font(.caption2.bold())
+                                    .tracking(0.6)
+                                    .foregroundStyle(.secondary)
+                                Text("· \(skippedItems.count)")
+                                    .font(.caption2)
+                                    .foregroundStyle(.tertiary)
+                                Spacer()
+                                Image(systemName: skippedExpanded ? "chevron.up" : "chevron.down")
+                                    .font(.caption.bold())
+                                    .foregroundStyle(.tertiary)
+                            }
                             .padding(.horizontal, 4)
-                        VStack(spacing: 0) {
-                            ForEach(Array(skippedItems.enumerated()), id: \.element.key) { idx, item in
-                                Button {
-                                    restoreSkipped(key: item.key)
-                                } label: {
-                                    HStack {
-                                        Image(systemName: "arrow.uturn.backward")
-                                            .font(.caption.weight(.semibold))
-                                            .foregroundStyle(Theme.accent)
-                                        Text(item.name)
-                                            .font(.subheadline)
-                                            .foregroundStyle(.primary)
-                                        Spacer()
-                                        Text("Restore")
-                                            .font(.caption.weight(.semibold))
-                                            .foregroundStyle(Theme.accent)
+                            .contentShape(Rectangle())
+                        }
+                        .buttonStyle(.plain)
+
+                        if skippedExpanded {
+                            VStack(spacing: 0) {
+                                ForEach(Array(skippedItems.enumerated()), id: \.element.key) { idx, item in
+                                    HStack(spacing: 8) {
+                                        Button {
+                                            restoreSkipped(key: item.key)
+                                        } label: {
+                                            HStack(spacing: 10) {
+                                                Image(systemName: "arrow.uturn.backward")
+                                                    .font(.caption.weight(.semibold))
+                                                    .foregroundStyle(Theme.accent)
+                                                Text(item.name)
+                                                    .font(.subheadline)
+                                                    .foregroundStyle(.primary)
+                                                Spacer(minLength: 4)
+                                                Text("Restore")
+                                                    .font(.caption.weight(.semibold))
+                                                    .foregroundStyle(Theme.accent)
+                                            }
+                                            .contentShape(Rectangle())
+                                        }
+                                        .buttonStyle(.plain)
+
+                                        Button {
+                                            skippedPendingDelete = item
+                                        } label: {
+                                            Image(systemName: "trash")
+                                                .font(.footnote)
+                                                .foregroundStyle(.secondary)
+                                                .frame(width: 28, height: 28)
+                                                .background(Color(.tertiarySystemGroupedBackground))
+                                                .clipShape(Circle())
+                                        }
+                                        .buttonStyle(.plain)
                                     }
-                                    .padding(.vertical, 10)
+                                    .padding(.vertical, 8)
                                     .padding(.horizontal, 14)
-                                }
-                                .buttonStyle(.plain)
-                                if idx < skippedItems.count - 1 {
-                                    Divider().padding(.leading, 14)
+                                    if idx < skippedItems.count - 1 {
+                                        Divider().padding(.leading, 14)
+                                    }
                                 }
                             }
+                            .background(
+                                RoundedRectangle(cornerRadius: Theme.cardCorner, style: .continuous)
+                                    .fill(Color(.secondarySystemGroupedBackground))
+                            )
+                            .transition(.opacity)
                         }
-                        .background(
-                            RoundedRectangle(cornerRadius: Theme.cardCorner, style: .continuous)
-                                .fill(Color(.secondarySystemGroupedBackground))
-                        )
                     }
                     .padding(.top, 8)
                 }
@@ -392,6 +447,25 @@ struct TodaySessionView: View {
                 addOneOff(name: name, isBodyweight: isBodyweight)
             }
             .presentationDetents([.medium, .large])
+        }
+        .confirmationDialog(
+            "Delete \(skippedPendingDelete?.name ?? "this exercise")?",
+            isPresented: Binding(
+                get: { skippedPendingDelete != nil },
+                set: { if !$0 { skippedPendingDelete = nil } }
+            ),
+            titleVisibility: .visible,
+            presenting: skippedPendingDelete
+        ) { item in
+            Button("Delete from routine", role: .destructive) {
+                deleteSkipped(key: item.key)
+                skippedPendingDelete = nil
+            }
+            Button("Cancel", role: .cancel) {
+                skippedPendingDelete = nil
+            }
+        } message: { _ in
+            Text("Removes this exercise from the routine template so it won't show up in future sessions. Past logs stay in your history.")
         }
     }
 
