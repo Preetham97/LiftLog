@@ -313,11 +313,14 @@ struct RoutineDetailView: View {
                         }
                     }
                     .swipeActions(edge: .trailing) {
-                        Button(role: .destructive) {
+                        // No `role: .destructive` here so the row doesn't
+                        // animate away before the confirmation has resolved.
+                        Button {
                             dayPendingDelete = day
                         } label: {
                             Label("Delete", systemImage: "trash")
                         }
+                        .tint(.red)
                     }
                 }
 
