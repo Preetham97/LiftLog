@@ -106,6 +106,26 @@ struct TodaySessionView: View {
         return items
     }
 
+    /// Exercises the user swiped to skip for this session, paired with the
+    /// original template name when available so we can show their full label.
+    private var skippedItems: [(key: String, name: String)] {
+        guard let s = session else { return [] }
+        let templateByKey = Dictionary(
+            uniqueKeysWithValues: day.orderedExercises.map { ($0.name.normalizedExerciseKey, $0.name) }
+        )
+        return s.skippedExerciseKeys.map { key in
+            (key, templateByKey[key] ?? key.capitalized)
+        }
+    }
+
+    private func restoreSkipped(key: String) {
+        guard let s = session else { return }
+        s.skippedExerciseKeys.removeAll { $0 == key }
+        do { try context.save() } catch {
+            print("[LiftLog] restoreSkipped failed: \(error)")
+        }
+    }
+
     private func skip(_ item: DisplayedExerciseItem) {
         let s = session ?? {
             let new = WorkoutSession(date: .now, dayName: day.name, routineName: routine.name)
@@ -223,7 +243,7 @@ struct TodaySessionView: View {
                 HeroHeader(routine: routine, day: day, totalSets: totalSets)
 
                 ForEach(visibleExercises, id: \.id) { item in
-                    SwipeableRow(onDelete: { skip(item) }) {
+                    SwipeableRow(onDelete: { skip(item) }, allowsFullSwipeCommit: false) {
                         ExerciseLogCard(
                             exerciseName: item.name,
                             isBodyweight: item.isBodyweight,
@@ -255,6 +275,47 @@ struct TodaySessionView: View {
                 }
                 .buttonStyle(.plain)
                 .padding(.top, 4)
+
+                if !skippedItems.isEmpty {
+                    VStack(alignment: .leading, spacing: 6) {
+                        Text("SKIPPED TODAY")
+                            .font(.caption2.bold())
+                            .tracking(0.6)
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 4)
+                        VStack(spacing: 0) {
+                            ForEach(Array(skippedItems.enumerated()), id: \.element.key) { idx, item in
+                                Button {
+                                    restoreSkipped(key: item.key)
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "arrow.uturn.backward")
+                                            .font(.caption.weight(.semibold))
+                                            .foregroundStyle(Theme.accent)
+                                        Text(item.name)
+                                            .font(.subheadline)
+                                            .foregroundStyle(.primary)
+                                        Spacer()
+                                        Text("Restore")
+                                            .font(.caption.weight(.semibold))
+                                            .foregroundStyle(Theme.accent)
+                                    }
+                                    .padding(.vertical, 10)
+                                    .padding(.horizontal, 14)
+                                }
+                                .buttonStyle(.plain)
+                                if idx < skippedItems.count - 1 {
+                                    Divider().padding(.leading, 14)
+                                }
+                            }
+                        }
+                        .background(
+                            RoundedRectangle(cornerRadius: Theme.cardCorner, style: .continuous)
+                                .fill(Color(.secondarySystemGroupedBackground))
+                        )
+                    }
+                    .padding(.top, 8)
+                }
 
                 Button {
                     showingFinishConfirm = true
@@ -758,6 +819,7 @@ private struct SetRowView: View {
 
 private struct SwipeableRow<Content: View>: View {
     let onDelete: () -> Void
+    var allowsFullSwipeCommit: Bool = true
     @ViewBuilder let content: () -> Content
 
     @State private var offset: CGFloat = 0
@@ -795,7 +857,7 @@ private struct SwipeableRow<Content: View>: View {
                         }
                         .onEnded { value in
                             withAnimation(.spring(response: 0.32, dampingFraction: 0.85)) {
-                                if value.translation.width < -triggerThreshold {
+                                if allowsFullSwipeCommit && value.translation.width < -triggerThreshold {
                                     commitDelete()
                                 } else if value.translation.width < -actionWidth/2 {
                                     offset = -actionWidth - 4
