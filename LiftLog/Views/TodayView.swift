@@ -233,14 +233,10 @@ struct TodaySessionView: View {
         return ordered[next].name
     }
 
-    private var totalSets: Int {
-        session?.loggedExercises.reduce(0) { $0 + $1.sets.count } ?? 0
-    }
-
     var body: some View {
         ScrollView {
             VStack(spacing: 10) {
-                HeroHeader(routine: routine, day: day, totalSets: totalSets)
+                HeroHeader(routine: routine, day: day)
 
                 ForEach(visibleExercises, id: \.id) { item in
                     SwipeableRow(onDelete: { skip(item) }, allowsFullSwipeCommit: false) {
@@ -453,28 +449,22 @@ struct TodaySessionView: View {
 private struct HeroHeader: View {
     let routine: Routine
     let day: RoutineDay
-    let totalSets: Int
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 6) {
+        VStack(alignment: .leading, spacing: 4) {
             Text(routine.name.uppercased())
                 .font(.caption.bold())
                 .tracking(1.2)
-                .foregroundStyle(.secondary)
+                .foregroundStyle(Theme.accent)
 
             Text(day.name)
-                .font(.system(size: 32, weight: .bold, design: .rounded))
+                .font(.title2.weight(.bold))
                 .foregroundStyle(.primary)
 
             HStack(spacing: 6) {
                 Text(Date.now.formatted(date: .abbreviated, time: .omitted))
                 Text("•").foregroundStyle(.tertiary)
                 Text("\(day.exercises.count) lift\(day.exercises.count == 1 ? "" : "s")")
-                if totalSets > 0 {
-                    Text("•").foregroundStyle(.tertiary)
-                    Text("\(totalSets) set\(totalSets == 1 ? "" : "s") logged")
-                        .fontWeight(.semibold)
-                }
             }
             .font(.subheadline)
             .foregroundStyle(.secondary)
@@ -482,7 +472,7 @@ private struct HeroHeader: View {
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(.horizontal, 4)
         .padding(.top, 4)
-        .padding(.bottom, 8)
+        .padding(.bottom, 6)
     }
 }
 
