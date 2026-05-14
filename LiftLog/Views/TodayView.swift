@@ -138,14 +138,20 @@ struct TodaySessionView: View {
         skippedRevision &+= 1
     }
 
-    /// Permanently removes a skipped exercise. If it's part of the routine
-    /// template, the Exercise is deleted from the day so it won't show up
-    /// in future sessions either. For one-offs (no template), this just
-    /// clears the skip marker. Either way the entry vanishes from the
-    /// "Skipped today" list.
+    /// Permanently removes a skipped exercise.
+    /// - If it's part of the routine template, the Exercise is deleted
+    ///   from the day so it won't show up in future sessions either.
+    /// - Any LoggedExercise in the current session (one-off, or a
+    ///   partially-logged template skip) is also deleted so the card
+    ///   truly disappears instead of resurfacing in the active list.
+    /// - The skip key is cleared either way.
     private func deleteSkipped(key: String) {
         if let template = day.orderedExercises.first(where: { $0.name.normalizedExerciseKey == key }) {
             context.delete(template)
+        }
+        if let s = session,
+           let existingLog = s.loggedExercises.first(where: { $0.exerciseName.normalizedExerciseKey == key }) {
+            context.delete(existingLog)
         }
         if let s = session {
             s.skippedExerciseKeys = s.skippedExerciseKeys.filter { $0 != key }
