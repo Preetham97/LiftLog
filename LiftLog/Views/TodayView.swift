@@ -68,6 +68,11 @@ struct TodaySessionView: View {
     @State private var showingAddExercise = false
     @State private var skippedExpanded = true
     @State private var skippedPendingDelete: (key: String, name: String)?
+    /// Bumped every time we mutate session.skippedExerciseKeys so dependent
+    /// computed properties (visibleExercises, skippedItems) re-evaluate.
+    /// SwiftData's @Model change tracking on [String] doesn't reliably
+    /// trigger view re-renders on its own.
+    @State private var skippedRevision: Int = 0
     @FocusState private var focusedField: SetField?
 
     struct DisplayedExerciseItem: Identifiable {
@@ -78,6 +83,7 @@ struct TodaySessionView: View {
     }
 
     private var visibleExercises: [DisplayedExerciseItem] {
+        _ = skippedRevision  // force re-evaluation when skipped keys mutate
         let skipped = Set(session?.skippedExerciseKeys ?? [])
         var seenKeys = Set<String>()
         var items: [DisplayedExerciseItem] = []
@@ -111,6 +117,7 @@ struct TodaySessionView: View {
     /// Exercises the user swiped to skip for this session, paired with the
     /// original template name when available so we can show their full label.
     private var skippedItems: [(key: String, name: String)] {
+        _ = skippedRevision  // force re-evaluation when skipped keys mutate
         guard let s = session else { return [] }
         let templateByKey = Dictionary(
             uniqueKeysWithValues: day.orderedExercises.map { ($0.name.normalizedExerciseKey, $0.name) }
@@ -128,6 +135,7 @@ struct TodaySessionView: View {
         do { try context.save() } catch {
             print("[LiftLog] restoreSkipped failed: \(error)")
         }
+        skippedRevision &+= 1
     }
 
     /// Permanently removes a skipped exercise. If it's part of the routine
@@ -145,6 +153,7 @@ struct TodaySessionView: View {
         do { try context.save() } catch {
             print("[LiftLog] deleteSkipped failed: \(error)")
         }
+        skippedRevision &+= 1
     }
 
     /// Reorders the visible exercises and persists the new `order` on the
@@ -182,6 +191,7 @@ struct TodaySessionView: View {
         do { try context.save() } catch {
             print("[LiftLog] skip exercise failed: \(error)")
         }
+        skippedRevision &+= 1
     }
 
     private func addOneOff(name: String, isBodyweight: Bool) {
@@ -198,6 +208,7 @@ struct TodaySessionView: View {
 
         // If it's currently in the skipped list, un-skip it.
         s.skippedExerciseKeys = s.skippedExerciseKeys.filter { $0 != key }
+        skippedRevision &+= 1
 
         // If a log for this exercise already exists in the session, do nothing.
         let already = s.loggedExercises.contains { $0.exerciseName.normalizedExerciseKey == key }
