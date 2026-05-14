@@ -430,20 +430,32 @@ private struct SessionSummaryCard: View {
                         .foregroundStyle(.secondary)
                 }
                 Spacer()
-                if let img = shareImage {
-                    ShareLink(
-                        item: img,
-                        preview: SharePreview(
-                            "\(session.dayName) workout",
-                            image: img
-                        )
-                    ) {
-                        Image(systemName: "square.and.arrow.up")
+                HStack(spacing: 8) {
+                    NavigationLink {
+                        EditSessionView(session: session)
+                    } label: {
+                        Image(systemName: "pencil")
                             .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.secondary)
                             .padding(8)
                             .background(Color(.tertiarySystemGroupedBackground))
                             .clipShape(Circle())
+                    }
+                    if let img = shareImage {
+                        ShareLink(
+                            item: img,
+                            preview: SharePreview(
+                                "\(session.dayName) workout",
+                                image: img
+                            )
+                        ) {
+                            Image(systemName: "square.and.arrow.up")
+                                .font(.subheadline.weight(.semibold))
+                                .foregroundStyle(.secondary)
+                                .padding(8)
+                                .background(Color(.tertiarySystemGroupedBackground))
+                                .clipShape(Circle())
+                        }
                     }
                 }
             }

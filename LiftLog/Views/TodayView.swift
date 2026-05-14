@@ -763,7 +763,7 @@ private struct PreviousSessionStrip: View {
     }
 }
 
-private struct SetRowView: View {
+struct SetRowView: View {
     @EnvironmentObject private var unitPref: UnitPreference
     @Bindable var entry: SetEntry
     let isBodyweight: Bool
@@ -807,7 +807,7 @@ private struct SetRowView: View {
     }
 }
 
-private struct SwipeableRow<Content: View>: View {
+struct SwipeableRow<Content: View>: View {
     let onDelete: () -> Void
     var allowsFullSwipeCommit: Bool = true
     @ViewBuilder let content: () -> Content
@@ -872,7 +872,7 @@ private struct SwipeableRow<Content: View>: View {
     }
 }
 
-private struct NumericField: View {
+struct NumericField: View {
     @Binding var value: Double
     let placeholder: String
     let suffix: String
@@ -918,7 +918,7 @@ private struct NumericField: View {
     }
 }
 
-private struct NumericIntField: View {
+struct NumericIntField: View {
     @Binding var value: Int
     let placeholder: String
     @FocusState.Binding var focus: SetField?
@@ -994,7 +994,7 @@ struct FlowLayout: Layout {
 
 // MARK: - Add exercise sheet
 
-private struct AddExerciseSheet: View {
+struct AddExerciseSheet: View {
     @Environment(\.dismiss) private var dismiss
     @Query private var allExercises: [Exercise]
     @Query private var allLogs: [LoggedExercise]
