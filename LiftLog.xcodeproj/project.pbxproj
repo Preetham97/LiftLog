@@ -22,6 +22,7 @@
 		B6EC5D85C7A120E7FFFA0B1F /* RoutinesView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00DCFAB3C47824B2CC92E4E /* RoutinesView.swift */; };
 		B8F5E2A34071DD01A27E4F7E /* SettingsView.swift in Sources */ = {isa = PBXBuildFile; fileRef = 29AC04C9CCBFB62131B32C35 /* SettingsView.swift */; };
 		D1C39D66EB6A1F729CC0CCBD /* Theme.swift in Sources */ = {isa = PBXBuildFile; fileRef = 0DEC03019432C9E796D74D1B /* Theme.swift */; };
+		DB5A279822B0E2CB31202DF2 /* ShareCardView.swift in Sources */ = {isa = PBXBuildFile; fileRef = CC451D9E49F27B3F870EBEAA /* ShareCardView.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXFileReference section */
@@ -40,6 +41,7 @@
 		8CFF229A8CB97B3775877FD7 /* HistoryView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HistoryView.swift; sourceTree = "<group>"; };
 		A00DCFAB3C47824B2CC92E4E /* RoutinesView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RoutinesView.swift; sourceTree = "<group>"; };
 		C8BBE9B4E63429EEBFADC87A /* TodayView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = TodayView.swift; sourceTree = "<group>"; };
+		CC451D9E49F27B3F870EBEAA /* ShareCardView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = ShareCardView.swift; sourceTree = "<group>"; };
 		E5B4CC643AF323605D8ABB92 /* StatsView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = StatsView.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
@@ -64,6 +66,7 @@
 				2C6024B29CF57ADD9CD63AD4 /* RootView.swift */,
 				A00DCFAB3C47824B2CC92E4E /* RoutinesView.swift */,
 				29AC04C9CCBFB62131B32C35 /* SettingsView.swift */,
+				CC451D9E49F27B3F870EBEAA /* ShareCardView.swift */,
 				6CA6CEF5F15C02AD8BE2AB14 /* SplashView.swift */,
 				E5B4CC643AF323605D8ABB92 /* StatsView.swift */,
 				C8BBE9B4E63429EEBFADC87A /* TodayView.swift */,
@@ -186,6 +189,7 @@
 				62DCC174CB130B4F1361926B /* RoutineTemplate.swift in Sources */,
 				B6EC5D85C7A120E7FFFA0B1F /* RoutinesView.swift in Sources */,
 				B8F5E2A34071DD01A27E4F7E /* SettingsView.swift in Sources */,
+				DB5A279822B0E2CB31202DF2 /* ShareCardView.swift in Sources */,
 				0DA83C8815335F2EB1E3736C /* SplashView.swift in Sources */,
 				51C120DB00EAC0CEFBEDDC07 /* StatsView.swift in Sources */,
 				D1C39D66EB6A1F729CC0CCBD /* Theme.swift in Sources */,

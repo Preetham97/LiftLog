@@ -341,22 +341,111 @@ private struct SessionSummaryCard: View {
             .sorted { $0.order < $1.order }
     }
 
+    private var shareImage: Image? {
+        let summaries = loggedExercises.map { log -> ShareCardView.ExerciseSummary in
+            let isBW = log.effectiveIsBodyweight
+            let valid = log.validSets
+            let topSet: SetEntry? = isBW
+                ? valid.max { $0.reps < $1.reps }
+                : valid.max { $0.weight < $1.weight }
+            let topSetText: String
+            if let t = topSet {
+                if isBW {
+                    topSetText = "\(t.reps) reps"
+                } else {
+                    topSetText = "\(t.weight.formattedWeight(unit: unit)) × \(t.reps)"
+                }
+            } else {
+                topSetText = "—"
+            }
+            let topValue: Double
+            if isBW {
+                topValue = Double(valid.map(\.reps).max() ?? 0)
+            } else {
+                topValue = valid.map(\.estimatedOneRepMax).max() ?? 0
+            }
+            let prev = previousTopValue(for: log)
+            let trend = prev.map { topValue - $0 } ?? 0
+            let format = MetricFormat.from(isBodyweight: isBW, unit: unit)
+            return ShareCardView.ExerciseSummary(
+                id: log.exerciseName.normalizedExerciseKey,
+                name: log.exerciseName,
+                isBodyweight: isBW,
+                topSetText: topSetText,
+                metricLabel: isBW ? "TOP REPS" : "e1RM",
+                metricValue: format.format(topValue),
+                trend: trend,
+                format: format
+            )
+        }
+        let renderer = ImageRenderer(content:
+            ShareCardView(
+                date: session.date,
+                routineName: session.routineName,
+                dayName: session.dayName,
+                exercises: summaries
+            )
+        )
+        renderer.scale = UIScreen.main.scale
+        guard let ui = renderer.uiImage else { return nil }
+        return Image(uiImage: ui)
+    }
+
+    private func previousTopValue(for log: LoggedExercise) -> Double? {
+        let key = log.exerciseName.normalizedExerciseKey
+        let currentID = log.session?.persistentModelID
+        let earlier = allLogs.filter { l in
+            l.exerciseName.normalizedExerciseKey == key
+                && l.session?.isCompleted == true
+                && l.session?.persistentModelID != currentID
+                && l.hasAnyValidSet
+                && (l.session?.date ?? .distantPast) < (log.session?.date ?? .distantPast)
+        }
+        guard let prevLog = earlier.max(by: { ($0.session?.date ?? .distantPast) < ($1.session?.date ?? .distantPast) }) else {
+            return nil
+        }
+        let valid = prevLog.validSets
+        if prevLog.effectiveIsBodyweight {
+            return Double(valid.map(\.reps).max() ?? 0)
+        }
+        return valid.map(\.estimatedOneRepMax).max() ?? 0
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 14) {
-            VStack(alignment: .leading, spacing: 4) {
-                HStack(spacing: 6) {
-                    Text(session.dayName)
-                        .font(.headline)
-                    if !session.routineName.isEmpty {
-                        Text("•").foregroundStyle(.tertiary)
-                        Text(session.routineName)
-                            .font(.subheadline)
+            HStack(alignment: .top) {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Text(session.dayName)
+                            .font(.headline)
+                        if !session.routineName.isEmpty {
+                            Text("•").foregroundStyle(.tertiary)
+                            Text(session.routineName)
+                                .font(.subheadline)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                    Text(session.date.formatted(date: .complete, time: .omitted))
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+                Spacer()
+                if let img = shareImage {
+                    ShareLink(
+                        item: img,
+                        preview: SharePreview(
+                            "\(session.dayName) workout",
+                            image: img
+                        )
+                    ) {
+                        Image(systemName: "square.and.arrow.up")
+                            .font(.subheadline.weight(.semibold))
                             .foregroundStyle(.secondary)
+                            .padding(8)
+                            .background(Color(.tertiarySystemGroupedBackground))
+                            .clipShape(Circle())
                     }
                 }
-                Text(session.date.formatted(date: .complete, time: .omitted))
-                    .font(.caption)
-                    .foregroundStyle(.secondary)
             }
 
             if loggedExercises.isEmpty {
