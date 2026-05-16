@@ -31,7 +31,8 @@ struct EditSessionView: View {
                     showingAddExercise: $showingAddExercise,
                     showingDiscardConfirm: $showingDiscardConfirm,
                     onSave: { saveAndDismiss(ctx) },
-                    onDiscardConfirmed: { dismiss() }
+                    onDiscardConfirmed: { dismiss() },
+                    onDeleteSession: { deleteSessionAndDismiss(session: session, ctx: ctx) }
                 )
                 .environment(\.modelContext, ctx)
             } else {
@@ -56,6 +57,16 @@ struct EditSessionView: View {
         }
         dismiss()
     }
+
+    private func deleteSessionAndDismiss(session: WorkoutSession, ctx: ModelContext) {
+        ctx.delete(session)  // cascades to all LoggedExercises + SetEntries
+        do {
+            try ctx.save()
+        } catch {
+            print("[LiftLog] delete session failed: \(error)")
+        }
+        dismiss()
+    }
 }
 
 // MARK: - Editor screen (always has a valid session + scoped context)
@@ -71,6 +82,13 @@ private struct EditorScreen: View {
     @Binding var showingDiscardConfirm: Bool
     let onSave: () -> Void
     let onDiscardConfirmed: () -> Void
+    let onDeleteSession: () -> Void
+
+    /// Bumped on every edit so `hasUnsavedChanges` (which reads
+    /// `context.hasChanges`) re-evaluates. SwiftData's hasChanges flag
+    /// isn't observable on its own.
+    @State private var changeRevision: Int = 0
+    @State private var showingDeleteSessionConfirm = false
 
     private var loggedExercises: [LoggedExercise] {
         session.loggedExercises.sorted { $0.order < $1.order }
@@ -81,7 +99,12 @@ private struct EditorScreen: View {
     }
 
     private var hasUnsavedChanges: Bool {
-        context.hasChanges
+        _ = changeRevision
+        return context.hasChanges
+    }
+
+    private func bumpChange() {
+        changeRevision &+= 1
     }
 
     private var allFieldsInOrder: [SetField] {
@@ -145,10 +168,18 @@ private struct EditorScreen: View {
 
                 ForEach(loggedExercises) { log in
                     SwipeableRow(
-                        onDelete: { context.delete(log) },
+                        onDelete: {
+                            context.delete(log)
+                            bumpChange()
+                        },
                         allowsFullSwipeCommit: false
                     ) {
-                        EditableExerciseCard(log: log, focus: $focusedField, unit: unitPref.unit)
+                        EditableExerciseCard(
+                            log: log,
+                            focus: $focusedField,
+                            unit: unitPref.unit,
+                            onMutate: bumpChange
+                        )
                     }
                 }
 
@@ -170,6 +201,25 @@ private struct EditorScreen: View {
                 }
                 .buttonStyle(.plain)
                 .padding(.top, 4)
+
+                Button(role: .destructive) {
+                    showingDeleteSessionConfirm = true
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "trash")
+                        Text("Delete session")
+                    }
+                    .font(.footnote.weight(.semibold))
+                    .foregroundStyle(.red)
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 10)
+                    .background(
+                        RoundedRectangle(cornerRadius: Theme.pillCorner, style: .continuous)
+                            .strokeBorder(Color.red.opacity(0.4), lineWidth: 1)
+                    )
+                }
+                .buttonStyle(.plain)
+                .padding(.top, 14)
 
                 Spacer(minLength: 120)
             }
@@ -237,6 +287,18 @@ private struct EditorScreen: View {
             }
             .presentationDetents([.medium, .large])
         }
+        .confirmationDialog(
+            "Delete this session?",
+            isPresented: $showingDeleteSessionConfirm,
+            titleVisibility: .visible
+        ) {
+            Button("Delete session", role: .destructive) {
+                onDeleteSession()
+            }
+            Button("Cancel", role: .cancel) {}
+        } message: {
+            Text("Removes every exercise and set from this session and pulls it out of Stats, History, and the calendar. Your routine template isn't affected.")
+        }
     }
 
     private func addExercise(name: String, isBodyweight: Bool) {
@@ -255,6 +317,7 @@ private struct EditorScreen: View {
         context.insert(log)
         log.session = session
         session.loggedExercises.append(log)
+        bumpChange()
     }
 }
 
@@ -263,13 +326,14 @@ private struct EditableExerciseCard: View {
     @Bindable var log: LoggedExercise
     @FocusState.Binding var focus: SetField?
     let unit: WeightUnit
+    let onMutate: () -> Void
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
             HStack(spacing: 8) {
                 Text(log.exerciseName)
                     .font(.headline)
-                if log.effectiveIsBodyweight {
+                if log.isBodyweight {
                     Text("BW")
                         .font(.caption2.bold())
                         .tracking(0.4)
@@ -284,10 +348,10 @@ private struct EditableExerciseCard: View {
 
             VStack(spacing: 6) {
                 ForEach(log.orderedSets) { entry in
-                    SwipeableRow(onDelete: { context.delete(entry) }) {
+                    SwipeableRow(onDelete: { delete(entry) }) {
                         SetRowView(
                             entry: entry,
-                            isBodyweight: log.effectiveIsBodyweight,
+                            isBodyweight: log.isBodyweight,
                             focus: $focus
                         )
                     }
@@ -314,6 +378,12 @@ private struct EditableExerciseCard: View {
         context.insert(entry)
         entry.loggedExercise = log
         log.sets.append(entry)
+        onMutate()
+    }
+
+    private func delete(_ entry: SetEntry) {
+        context.delete(entry)
+        onMutate()
     }
 }
 
