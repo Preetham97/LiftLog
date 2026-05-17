@@ -50,6 +50,18 @@ struct EditSessionView: View {
     }
 
     private func saveAndDismiss(_ ctx: ModelContext) {
+        // If the edited session has no real work left in it (e.g. user
+        // cleared every set), there's nothing meaningful to keep. Delete
+        // it so the calendar / stats don't end up with an orphaned
+        // empty-session record.
+        if let session = editableSession {
+            let hasRealWork = session.loggedExercises.contains {
+                $0.hasAnyValidSet && !$0.isSkippedBySession
+            }
+            if !hasRealWork {
+                ctx.delete(session)
+            }
+        }
         do {
             try ctx.save()
         } catch {

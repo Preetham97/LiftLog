@@ -307,7 +307,15 @@ struct DaySessionsView: View {
     private var sessionsThatDay: [WorkoutSession] {
         let cal = Calendar.current
         return allSessions
-            .filter { $0.isCompleted && cal.isDate($0.date, inSameDayAs: day) }
+            .filter { s in
+                s.isCompleted
+                    && cal.isDate(s.date, inSameDayAs: day)
+                    // Mirror the calendar-dot filter so orphaned empty
+                    // sessions don't render here either.
+                    && s.loggedExercises.contains {
+                        $0.hasAnyValidSet && !$0.isSkippedBySession
+                    }
+            }
             .sorted { $0.date > $1.date }
     }
 
@@ -331,9 +339,12 @@ struct DaySessionsView: View {
 }
 
 private struct SessionSummaryCard: View {
+    @Environment(\.modelContext) private var context
     let session: WorkoutSession
     let allLogs: [LoggedExercise]
     let unit: WeightUnit
+
+    @State private var showingDeleteConfirm = false
 
     private var loggedExercises: [LoggedExercise] {
         session.loggedExercises
