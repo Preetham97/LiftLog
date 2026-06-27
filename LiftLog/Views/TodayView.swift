@@ -698,9 +698,9 @@ private struct ExerciseLogCard: View {
                     .foregroundStyle(.secondary)
             }
             .buttonStyle(.plain)
-            Image(systemName: "chevron.right")
-                .font(.caption.bold())
-                .foregroundStyle(.tertiary)
+            // No explicit chevron — iOS adds a disclosure indicator
+            // for the inner NavigationLink in a List row, so a custom one
+            // here rendered as a duplicate.
         }
         .padding(.vertical, 12)
         .padding(.horizontal, 14)
